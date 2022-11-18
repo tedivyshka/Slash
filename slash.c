@@ -1,10 +1,17 @@
 #define MAX_ARGS_NUMBER 4096
 #define MAX_ARGS_STRLEN 4096
+#define BUFSIZE 1024
 
 #include <stdio.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <stdlib.h>
+#include <dirent.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
 
 typedef struct cmds_struct{
     char** cmds_array;
@@ -19,6 +26,13 @@ void testMalloc(void * ptr){
         printf("Erreur de malloc() ou realloc().\n");
         exit(EXIT_FAILURE);
     }
+}
+
+void push_string(char* str1,char* str2){
+  char *tmp = strdup(str1);
+  strcpy(str1, str2);
+  strcat(str1, tmp);
+  free(tmp);
 }
 
 void printListe(cmds_struct liste) {
@@ -82,6 +96,63 @@ char** reallocToSizeArray(char** array,size_t taille_array){
     return array;
 }
 
+// 1 si racine
+// 0 sinon
+// -1 si erreur
+int is_root(DIR* dir){
+    struct stat root;
+    if(stat("/",&root)<0) return -1;
+
+    struct stat st;
+    if(fstat(dirfd(dir),&st)<0) return -1;
+
+    return (root.st_ino==st.st_ino && root.st_dev==st.st_dev);
+}
+
+char* pwd_physique(DIR* dir){
+  char* result =  malloc(sizeof(char) * BUFSIZE);
+  //Get current dir ino and dev number
+  struct stat st;
+  int dir_fd = dirfd(dir);
+  if(fstat(dir_fd,&st)<0) {
+      perror("Error fstat");
+      exit(1);
+    }
+  ino_t dir_ino=st.st_ino;
+  dev_t dir_dev=st.st_dev;
+
+  //Open parent directory
+  int parent_fd = openat(dir_fd,"..",O_RDONLY | O_DIRECTORY);
+  DIR* parent = fdopendir(parent_fd);
+
+  //Iterate parent directory, search for current directory
+  struct dirent *entry;
+  while((entry=readdir(parent))){
+    if(strcmp(entry->d_name,".")==0 || strcmp(entry->d_name,"..")==0) continue;
+
+    //Get entry stat
+    if(fstatat(dirfd(parent),entry->d_name,&st,0) < 0) {
+      perror("Erro fstatat");
+      exit(1);
+    }
+    //Compare entry with current directory
+    if(st.st_ino == dir_ino && st.st_dev == dir_dev){
+      push_string(result,entry->d_name);
+      break;
+    }
+  }
+
+  if(entry == NULL) {
+    perror("Directory not found..."); exit(1);
+  }
+  //If parent isnt root, continue recursively
+  if(!is_root(parent)){
+    push_string(result,"/");
+    push_string(result,pwd_physique(parent));
+  }
+  else push_string(result,"/");
+  return result;
+}
 
 void interpreter(cmds_struct liste) {
     if(strcmp(*liste.cmds_array,"cd")==0){
@@ -97,6 +168,15 @@ void interpreter(cmds_struct liste) {
             exit(EXIT_FAILURE);
         }
         // appel de pwd avec *(liste.cmds_array+1)
+        DIR* dir;
+        int size = liste.taille_array - 1;
+        if(size > 0 && strcmp(liste.cmds_array[0],"-P")){
+          dir = opendir(".");
+          printf("%s\n",pwd_physique(dir));
+        }
+        else{
+          //Handle pwd -L
+        }
     }
     else{
         if(liste.taille_array>2){
