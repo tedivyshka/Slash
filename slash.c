@@ -39,7 +39,7 @@ int process_cd(char * path, char * arg){
     if(strcmp(arg,"P") == 0){
         // cd physique
     }
-    else if(strcmp(arg,"L") == 0 || strcmp(arg,"") == 0){
+    else if(strcmp(arg,"L") == 0){
         if(path[0] == '/'){ // référence absolue
             int val = is_directory(path);
             if(val == 0){
@@ -213,7 +213,14 @@ void interpreter(cmds_struct liste) {
             perror("Trop d'arguments pour la commande cd");
             exit(EXIT_FAILURE);
         }
-        process_cd(*(liste.cmds_array + 1),*(liste.cmds_array+2));
+        process_cd(*(liste.cmds_array + 1), *(liste.cmds_array + 2);
+        /*
+        if(liste.taille_array > 1) {
+            process_cd(*(liste.cmds_array + 1), *(liste.cmds_array + 2));
+        }else{
+            process_cd(*(liste.cmds_array + 1), "L");
+        }
+         */
     }
     else if(strcmp(*liste.cmds_array,"pwd")==0){
         if(liste.taille_array>2){
