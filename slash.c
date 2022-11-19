@@ -18,8 +18,61 @@ typedef struct cmds_struct{
     size_t taille_array;
 }cmds_struct;
 
+// Variables globales :
+char * current_path ; // probablement définis dans le document principal
+char * previous_path ;
+char * $HOME ; // doit être bien initialisée, pas de vérification d'erreur
 int errorCode=0;
 char* PWD="";
+
+
+// fonction vérifiant que le chemin donné est bien un directory
+int is_directory(char * path){
+    struct stat st;
+    lstat(path,&st);
+    if(S_ISDIR(st.st_mode)){
+        return 0;
+    }else return 1;
+}
+
+int process_cd(char * path, char * arg){
+    if(strcmp(arg,"P") == 0){
+        // cd physique
+    }
+    else if(strcmp(arg,"L") == 0 || strcmp(arg,"") == 0){
+        if(path[0] == '/'){ // référence absolue
+            int val = is_directory(path);
+            if(val == 0){
+                strcpy(previous_path, current_path);
+                strcpy(current_path, path);
+            }else{
+                printf("erreur");
+                return val;
+                // return erreur val
+            }
+        }else if(path[0] == '-') { // retour a la référence précédente
+            char * temp = previous_path;
+            strcpy(previous_path, current_path);
+            strcpy(current_path, temp);
+            free(temp);
+        }else{ // référence logique
+            char * newPath = malloc(sizeof(char) * (strlen(current_path) + 1 + strlen(path))); // + 2 ? (pour le \0)
+            strcpy(newPath,current_path);
+            newPath[strlen(current_path)] = '/';
+            strcat(newPath,path);
+            int val = is_directory(newPath);
+            if(val == 0){
+                strcpy(previous_path, current_path);
+                strcpy(current_path, newPath);
+            }else {
+                printf("erreur");
+                return val;
+                // return erreur val
+            }
+        }
+    }else return 1; // erreur
+    return 0;
+}
 
 void testMalloc(void * ptr){
     if(ptr == NULL){
@@ -160,7 +213,7 @@ void interpreter(cmds_struct liste) {
             perror("Trop d'arguments pour la commande cd");
             exit(EXIT_FAILURE);
         }
-        // appel de cd avec *(liste.cmds_array+1) et *(liste.cmds_array+2)
+        process_cd(*(liste.cmds_array + 1),*(liste.cmds_array+2));
     }
     else if(strcmp(*liste.cmds_array,"pwd")==0){
         if(liste.taille_array>2){
@@ -248,9 +301,14 @@ char* promptGeneration(){
     return res;
 }
 
+
+
 void run(){
     //rl_outstream=stderr; NE FONCTIONNE PAS IDK WHY
     char* ligne;
+    $HOME = getenv("HOME");
+    current_path = getenv("PWD");
+    previous_path = getenv("PWD");
     while(1){
         ligne=readline(promptGeneration());
         if(ligne && *ligne){
@@ -265,8 +323,6 @@ void run(){
         free(ligne);
     }
 }
-
-
 
 int main(void) {
     run();
