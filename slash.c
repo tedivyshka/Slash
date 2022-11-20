@@ -213,7 +213,7 @@ void interpreter(cmds_struct liste) {
             perror("Trop d'arguments pour la commande cd");
             exit(EXIT_FAILURE);
         }
-        process_cd(*(liste.cmds_array + 1), *(liste.cmds_array + 2);
+        process_cd(*(liste.cmds_array + 1), *(liste.cmds_array + 2));
         /*
         if(liste.taille_array > 1) {
             process_cd(*(liste.cmds_array + 1), *(liste.cmds_array + 2));
@@ -230,12 +230,12 @@ void interpreter(cmds_struct liste) {
         // appel de pwd avec *(liste.cmds_array+1)
         DIR* dir;
         int size = liste.taille_array - 1;
-        if(size > 0 && strcmp(liste.cmds_array[0],"-P")){
+        if(size > 0 && (strcmp(liste.cmds_array[1],"-P")==0)){
           dir = opendir(".");
           printf("%s\n",pwd_physique(dir));
         }
         else{
-          //Handle pwd -L
+          printf("%s\n", current_path);
         }
     }
     else{
