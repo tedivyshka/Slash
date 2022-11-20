@@ -20,14 +20,167 @@ typedef struct cmds_struct{
 }cmds_struct;
 
 // Variables globales :
-char * current_path ; // probablement définis dans le document principal
-char * previous_path ;
-char * $HOME ; // doit être bien initialisée, pas de vérification d'erreur
 int errorCode=0;
-char* PWD="";
+
+char * pwd;
+char * oldpwd;
+char * pwdPhy;
+char * home;
 
 
-// fonction vérifiant que le chemin donné est bien un directory
+
+void testMalloc(void * ptr){
+    if(ptr == NULL){
+        printf("Erreur de malloc() ou realloc().\n");
+        exit(EXIT_FAILURE);
+    }
+}
+
+int process_cd(char * option, char * path){
+        // todo verifier que path valide pour pwdPhy
+    if(strcmp(option,"-P") == 0){
+        if(path[0] == '-'){ // cas du retour en arriere
+            char * temp = oldpwd;
+            oldpwd = malloc(strlen(pwd)); // oldpwd prend la valeur de pwd
+            strcpy(oldpwd,pwd);
+            pwd = malloc(strlen(temp)); // pwd et pwdPhy prennent l'ancienne valeur de oldpwd, qu'on transforme en valeur physique
+            chdir(temp);
+            getcwd(pwd, BUFSIZ);
+            getcwd(pwdPhy,BUFSIZ);
+            free(temp);
+        }else {
+            // oldpwd prend l'ancienne valeur de pwd
+            oldpwd = malloc(strlen(pwd));
+            testMalloc(oldpwd);
+            oldpwd = pwd;
+
+            if (path[0] == '/') { // chemin absolu : pwdPhy et pwd prennent la valeur du chemin, transformé en chemin physique
+                chdir(path);
+                pwdPhy = malloc(strlen(path));
+                pwd = malloc(strlen(path));
+                testMalloc(pwdPhy);
+                testMalloc(pwd);
+                getcwd(pwdPhy, BUFSIZ);
+                getcwd(pwd,BUFSIZ);
+
+            } else { // chemin relatif : pwdPhy et pwd prennent la valeur du pwd + "/" + chemin, transformé en chemin physique
+                char *newPath = malloc(sizeof(char) * (strlen(pwdPhy) + 1 + strlen(path)));
+                testMalloc(newPath);
+                strcpy(newPath, pwdPhy);
+                newPath[strlen(pwdPhy)] = '/';
+                strcat(newPath, path);
+                chdir(newPath);
+                pwdPhy = malloc(strlen(newPath));
+                pwd = malloc(strlen(newPath));
+                testMalloc(pwdPhy);
+                testMalloc(pwd);
+                getcwd(pwdPhy, BUFSIZ);
+                getcwd(pwd,BUFSIZ);
+            }
+        }
+    }
+        // todo verifier que path valide pour pwd
+    else{ // option -L or no option
+        printf("test1\n");
+        if(path[0] == '-'){ // cas du retour en arriere
+            char * temp = oldpwd;
+            oldpwd = malloc(strlen(pwd)); // oldpwd prend la valeur de pwd
+            strcpy(oldpwd,pwd);
+            pwd = malloc(strlen(temp)); // pwd prend l'ancienne valeur de oldpwd
+            testMalloc(pwd);
+            strcat(pwd,temp);
+
+            chdir(temp); // pwdPhy prend l'ancienne valeur de oldpwd, qu'on transforme en valeur physique
+            getcwd(pwdPhy,BUFSIZ);
+            free(temp);
+        }else {
+            if (path[0] != '/') { // si le chemin est relatif
+                char *newPathTmp = malloc(strlen(pwd) + strlen(path) + 1); // on crée un chemin contenant pwd et path = newPathTmp
+                strcpy(newPathTmp, pwd);
+                strcat(newPathTmp, "/");
+                strcat(newPathTmp, path);
+                path = malloc(strlen(newPathTmp));
+                strcpy(path, newPathTmp);
+            }
+            printf("test2\n");
+
+            char **partByPartNewPath = malloc(sizeof(char *));
+            printf("test2.1\n");
+
+            int i = 0;
+            *(partByPartNewPath + i) = strtok(path, "/");
+            do{
+                i += 1;
+                realloc(partByPartNewPath, sizeof(char *) * (i + 1));
+                testMalloc(partByPartNewPath);
+
+            }while((*(partByPartNewPath + i) = strtok(NULL,"/")));
+            printf("test3\n");
+
+            int cpt = 0;
+            while (i > cpt) {
+                if (strcmp(partByPartNewPath[cpt], "..") == 0) { // a chaque fois qu'on rencontre ..
+                    partByPartNewPath[cpt] = "-";
+                    int j = 1;
+                    while (strcmp(partByPartNewPath[cpt - j], "-") == 0 && cpt - j >= 0) {
+                        j += 1;
+                    }
+                    if (cpt - j >= 0) {
+                        partByPartNewPath[cpt - j] = "-"; // on supprime la premiere sous partie précédente qui n'est pas deja supprimée
+                    } else { //si il n'y en a pas, interpretation logique qui n'a pas ou peu de sens, on interprete physiquement
+                        return process_cd("-P", path);
+                    }
+                } else if (strcmp(partByPartNewPath[cpt], ".") == 0) {// a chaque fois qu'on rencontre .
+                    partByPartNewPath[cpt] = "-"; // on supprime la sous partie
+                }
+                cpt += 1;
+            }
+            printf("test4\n");
+
+            char *newPath = malloc(strlen(path)); // on crée un string
+            testMalloc(newPath);
+            int cpt2 = 0;
+            while (i > cpt2) {
+                if (strcmp(partByPartNewPath[cpt2], "-") != 0) { // qui va contenir toutes les sous parties du chemin intiniale qui n'ont pas été supprimée
+                    strcat(newPath, "/"); // en plaçant un "/" entre chaque parties
+                    strcat(newPath, partByPartNewPath[cpt2]);
+                }
+                cpt2 += 1;
+            }
+            printf("test5\n");
+            // on modifie les variables globales
+            printf("%s -- %lu\n", pwd, strlen(pwd));
+            oldpwd = malloc(strlen(pwd));
+            printf("test6\n");
+
+            testMalloc(oldpwd);
+            printf("test7\n");
+
+            oldpwd = pwd;
+            printf("test8\n");
+
+            pwd = malloc(strlen(newPath));
+            printf("test9\n");
+
+            testMalloc(pwd);
+            printf("test10\n");
+
+            pwd = newPath;
+
+            printf("test11\n");
+
+            // on prend aussi le chemin physique, pour les prochains cd
+            chdir(newPath);
+            pwdPhy = malloc(strlen(newPath));
+            testMalloc(pwdPhy);
+            getcwd(pwdPhy, BUFSIZ);
+        }
+    }
+    printf("pwd = %s , pwdPhy = %s , oldpwd = %s\n", pwd, pwdPhy, oldpwd);
+    return 1;
+}
+/*
+ // fonction vérifiant que le chemin donné est bien un directory
 int is_directory(char * path){
     struct stat st;
     lstat(path,&st);
@@ -36,51 +189,92 @@ int is_directory(char * path){
     }else return 1;
 }
 
-int process_cd(char * path, char * arg){
-    if(strcmp(arg,"P") == 0){
+int process_cd(char * option, char * path){
+    if(strcmp(option,"-P") == 0){
+        printf("cd physique\n");
         // cd physique
     }
-    else if(strcmp(arg,"L") == 0){
+    else if(strcmp(option,"-L") == 0){
+        printf("cd logique\n");
         if(path[0] == '/'){ // référence absolue
             int val = is_directory(path);
             if(val == 0){
-                strcpy(previous_path, current_path);
-                strcpy(current_path, path);
+                printf("before mod -> previous : %s   current : %s\n",oldpwd,pwd);
+                setenv("PWD",path, 1);
+                setenv("OLDPWD", pwd, 1);
+                oldpwd = malloc(strlen(pwd));
+                strcpy(oldpwd, pwd);
+                pwd = malloc(strlen(path));
+                strcpy(pwd, path);
+                printf("after mod -> previous : %s   current : %s\n",oldpwd,pwd);
+                printf("L - ref absolue - changements effectués\n");
             }else{
-                printf("erreur");
+                printf("erreur\n");
                 return val;
                 // return erreur val
             }
         }else if(path[0] == '-') { // retour a la référence précédente
-            char * temp = previous_path;
-            strcpy(previous_path, current_path);
-            strcpy(current_path, temp);
+            printf("before mod -> previous : %s   current : %s\n",oldpwd,pwd);
+            setenv("PWD",oldpwd, 1);
+            setenv("OLDPWD", pwd, 1);
+            char * temp = oldpwd;
+            oldpwd = malloc(strlen(pwd));
+            strcpy(oldpwd, pwd);
+            pwd = malloc(strlen(temp));
+            strcpy(pwd, temp);
             free(temp);
+            printf("after mod -> previous : %s   current : %s\n",oldpwd,pwd);
+            printf("L - ref précédente - changements effectués\n");
+
         }else{ // référence logique
-            char * newPath = malloc(sizeof(char) * (strlen(current_path) + 1 + strlen(path))); // + 2 ? (pour le \0)
-            strcpy(newPath,current_path);
-            newPath[strlen(current_path)] = '/';
+            char * newPath = malloc(sizeof(char) * (strlen(pwd) + 1 + strlen(path))); // + 2 ? (pour le \0)
+            strcpy(newPath,pwd);
+            newPath[strlen(pwd)] = '/';
             strcat(newPath,path);
             int val = is_directory(newPath);
             if(val == 0){
-                strcpy(previous_path, current_path);
-                strcpy(current_path, newPath);
+                printf("before mod -> previous : %s   current : %s\n",oldpwd,pwd);
+                setenv("PWD",newPath, 1);
+                setenv("OLDPWD", pwd, 1);
+                oldpwd = malloc(strlen(pwd));
+                strcpy(oldpwd, pwd);
+                pwd = malloc(strlen(newPath));
+                strcpy(pwd, newPath);
+                printf("after mod -> previous : %s   current : %s\n",oldpwd,pwd);
+                printf("L - ref logique - changements effectués\n");
             }else {
-                printf("erreur");
+                printf("erreur\n");
                 return val;
                 // return erreur val
             }
         }
-    }else return 1; // erreur
-    return 0;
-}
+    }else {
+        printf("erreur option = %s & path = %s\n", option, path);
+        return 1; // erreur
+    }
+    /*DIR * fdNew = opendir(pwd);
+    struct dirent * entry = readdir(fdNew);
 
+    while(strcmp(entry->d_name,"/") != 0){
+
+<<<<<<< Updated upstream
 void testMalloc(void * ptr){
     if(ptr == NULL){
         perror("Erreur de malloc() ou realloc().\n");
         exit(EXIT_FAILURE);
+=======
+>>>>>>> Stashed changes
     }
+
+    chdir(pwd);
+    char * test = malloc(1024);
+    getcwd(test,1024);
+    printf("%s -- %s -- %s", pwd, getenv("PWD"),test);
+    return 0;
 }
+*/
+
+
 
 void push_string(char* str1,char* str2){
   char *tmp = strdup(str1);
@@ -209,19 +403,24 @@ char* pwd_physique(DIR* dir){
 }
 
 void interpreter(cmds_struct liste) {
-    if(strcmp(*liste.cmds_array,"cd")==0){
+    if(strcmp(*liste.cmds_array,"cd")==0){ // todo faire une fonction qui choisit le bon appel ?
         if(liste.taille_array>3){
             perror("Trop d'arguments pour la commande cd");
             exit(EXIT_FAILURE);
-        }
-        process_cd(*(liste.cmds_array + 1), *(liste.cmds_array + 2));
-        /*
-        if(liste.taille_array > 1) {
+        }else if(liste.taille_array == 1){
+            printf("cd pas d'option pas de path\n");
+            process_cd("-L", home);
+        }else if(liste.taille_array == 3) {
+            printf("cd option\n");
             process_cd(*(liste.cmds_array + 1), *(liste.cmds_array + 2));
-        }else{
-            process_cd(*(liste.cmds_array + 1), "L");
+        }else{ // quand il n'y a pas d'option/ pas de path
+            printf("cd pas d'option/ pas de path\n");
+            if(strcmp(*(liste.cmds_array + 1),"-L") == 0 || strcmp(*(liste.cmds_array + 1),"-P") == 0){ // pas de path
+                process_cd(*(liste.cmds_array + 1), home);
+            }else {// pas d'option
+                process_cd("-L", *(liste.cmds_array + 1));
+            }
         }
-         */
     }
     else if(strcmp(*liste.cmds_array,"pwd")==0){
         if(liste.taille_array>2){
@@ -236,7 +435,7 @@ void interpreter(cmds_struct liste) {
           printf("%s\n",pwd_physique(dir));
         }
         else{
-          printf("%s\n", current_path);
+          printf("%s\n", pwd);
         }
     }
     else{
@@ -331,10 +530,13 @@ char* promptGeneration(){
 
 void run(){
     rl_outstream=stderr;
+    home = getenv("HOME");
+    pwdPhy = malloc(1024);
+    pwdPhy = getenv("PWD");
+    pwd = getenv("PWD");
+    oldpwd = getenv("OLDPWD");
+
     char* ligne;
-    $HOME = getenv("HOME");
-    current_path = getenv("PWD");
-    previous_path = getenv("PWD");
     while(1){
         ligne=readline(promptGeneration());
         if(ligne && *ligne){
