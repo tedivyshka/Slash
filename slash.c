@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <unistd.h>
 
 typedef struct cmds_struct{
     char** cmds_array;
@@ -243,7 +244,8 @@ void interpreter(cmds_struct liste) {
             perror("Trop d'arguments pour la commande exit");
             exit(EXIT_FAILURE);
         }
-        // appel de exit avec *(liste.cmds_array+1)
+        int exit_value = atoi(*(liste.cmds_array+1));
+        exit(exit_value);
     }
 }
 
@@ -311,7 +313,8 @@ char* promptGeneration(){
 
 
 void run(){
-    //rl_outstream=stderr; NE FONCTIONNE PAS IDK WHY
+
+    rl_outstream=stderr;
     char* ligne;
     $HOME = getenv("HOME");
     current_path = getenv("PWD");
