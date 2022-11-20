@@ -449,55 +449,26 @@ void interpreter(cmds_struct liste) {
 }
 
 cmds_struct lexer(char* ligne){
-    char** cmds_array= malloc(sizeof(char*));
-    char c=*ligne;
-    size_t* taille_string_init= malloc(sizeof(size_t));
+    char** cmds_array=malloc(sizeof(char*));
+    char* token;
     size_t* taille_array_init= malloc(sizeof(size_t));
-    size_t taille_array=0,taille_string=0,compteur=0;
-    *taille_string_init=2;
+    size_t taille_token;
+    size_t taille_array=0;
     *taille_array_init=1;
 
-    while(c != EOF && c != '\0'){
-        if(isspace(c)){
-            taille_string=0;
-            compteur++;
-            c=*(ligne+compteur);
-        }
-        else{
-            if(taille_string==0){
-                if(isspace(*(ligne+compteur-1))){
-                    taille_array++;
-                }
-                cmds_array=checkArraySize(cmds_array,taille_array,taille_array_init);
+    token=strtok(ligne," ");
+    do{
+        taille_token=strlen(token);
 
-                *(cmds_array+taille_array)=malloc(sizeof(char)*2);
-                testMalloc(*(cmds_array+taille_array));
-                /*
-                if(*(cmds_array+taille_array)==NULL)
-                    perror("malloc");
-                    */
-                **(cmds_array+taille_array)=c;
-                taille_string++;
-            }
-            else{
-                *(cmds_array+taille_array)=checkStringSize(*(cmds_array+taille_array),taille_string,taille_string_init);
-
-                *((*(cmds_array+taille_array))+taille_string)=c;
-
-                taille_string++;
-            }
-
-            if(isspace(*(ligne+compteur+1)) || *(ligne+compteur+1)=='\0'){
-                *(cmds_array+taille_array)=reallocToSizeString(*(cmds_array+taille_array),taille_string);
-            }
-
-            compteur++;
-            c=*(ligne+compteur);
-        }
+        cmds_array=checkArraySize(cmds_array,taille_array,taille_array_init);
+        *(cmds_array+taille_array)=malloc(sizeof(char)*(taille_token+1));
+        *(cmds_array+taille_array)=memcpy(*(cmds_array+taille_array),token,taille_token+1);
+        taille_array++;
     }
-    taille_array++;
-    if(taille_array!=0 && *taille_array_init!=taille_array)
-        cmds_array=reallocToSizeArray(cmds_array,taille_array);
+    while(token = strtok(NULL, " "));
+
+    free(token);
+    free(taille_array_init);
     cmds_struct cmdsStruct = {.cmds_array=cmds_array, .taille_array=taille_array};
     return cmdsStruct;
 }
