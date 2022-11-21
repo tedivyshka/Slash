@@ -465,7 +465,7 @@ cmds_struct lexer(char* ligne){
         *(cmds_array+taille_array)=memcpy(*(cmds_array+taille_array),token,taille_token+1);
         taille_array++;
     }
-    while(token = strtok(NULL, " "));
+    while((token = strtok(NULL, " ")));
 
     free(token);
     free(taille_array_init);
