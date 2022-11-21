@@ -35,16 +35,45 @@ void testMalloc(void * ptr){
         exit(EXIT_FAILURE);
     }
 }
+// 0 == true
+int isValidPhy(char * path){
+    if(path[0] == '/'){
+        struct stat st;
+        stat(path,&st);
+        return S_ISDIR(st.st_mode)?0:1;
+    }else{
+        char *newPathTmp = malloc(strlen(pwdPhy) + strlen(path) + 1); // on crée un chemin contenant pwd et path = newPathTmp
+        sprintf(newPathTmp,"%s/%s",pwdPhy,path);
+        struct stat st;
+        stat(newPathTmp,&st);
+        free(newPathTmp);
+        if(S_ISDIR(st.st_mode)){
+            return 0;
+        }
+        return 1;
+    }
+}
+
+int isValidLo(char * path){
+    struct stat st;
+    stat(path,&st);
+    return S_ISDIR(st.st_mode)?0:1;
+}
+
 /*
  * todo faire des malloc 1024, puis realloc si + grand
  */
 int process_cd(char * option, char * path){
-        // todo verifier que path valide pour pwdPhy
     if(strcmp(option,"-P") == 0){
+        if(isValidPhy(path) != 0) {
+            perror("bash: cd: a: Aucun fichier ou dossier de ce type\n");
+            exit(EXIT_FAILURE);
+        }
         if(path[0] == '-'){ // cas du retour en arriere
             char * temp = malloc(BUFSIZE);
             strcpy(temp,oldpwd);
             strcpy(oldpwd,pwd);
+
             chdir(temp);
             getcwd(pwd, BUFSIZE); //todo plus grandes valeurs si chemin + long ?
             getcwd(pwdPhy,BUFSIZE);
@@ -58,12 +87,10 @@ int process_cd(char * option, char * path){
                 getcwd(pwdPhy, BUFSIZE);
                 getcwd(pwd,BUFSIZE);
 
-            } else { // chemin relatif : pwdPhy et pwd prennent la valeur du pwd + "/" + chemin, transformé en chemin physique
-                char *newPath = malloc(sizeof(char) * (strlen(pwdPhy) + 1 + strlen(path)));
+            } else { // chemin relatif : pwdPhy et pwd prennent la valeur du pwdPhy + "/" + chemin, transformé en chemin physique
+                char *newPath = malloc((strlen(pwdPhy) + 2 + strlen(path)));
                 testMalloc(newPath);
-                strcpy(newPath, pwdPhy);
-                newPath[strlen(pwdPhy)] = '/';
-                strcat(newPath, path);
+                sprintf(newPath,"%s/%s",pwdPhy,path);
                 chdir(newPath);
                 getcwd(pwdPhy, BUFSIZE);
                 getcwd(pwd,BUFSIZE);
@@ -71,7 +98,6 @@ int process_cd(char * option, char * path){
         }
     }
 
-        // todo verifier que path valide pour pwd
     else{ // option -L or no option
         if(path[0] == '-'){ // cas du retour en arriere
             char * tmp = malloc(BUFSIZE);
@@ -79,20 +105,20 @@ int process_cd(char * option, char * path){
             strcpy(oldpwd,pwd);
             strcpy(pwd,tmp);
 
+
             chdir(tmp); // pwdPhy prend l'ancienne valeur de oldpwd, qu'on transforme en valeur physique
             getcwd(pwdPhy,BUFSIZE);
             free(tmp);
         }else {
+            char * pathSave = malloc(strlen(path));
+            testMalloc(pathSave);
+            strcpy(pathSave,path);
             if (path[0] != '/') { // si le chemin est relatif
                 char *newPathTmp = malloc(strlen(pwd) + strlen(path) + 1); // on crée un chemin contenant pwd et path = newPathTmp
                 sprintf(newPathTmp,"%s/%s",pwd,path);
-                //strcpy(newPathTmp, pwd);
-                //strcat(newPathTmp, "/");
-                //strcat(newPathTmp, path);
                 path = realloc(path, strlen(newPathTmp));
                 strcpy(path, newPathTmp);
             }
-            //printf("------------- test1 -------------\n");
 
             char **partByPartNewPath = malloc(sizeof(char *));
 
@@ -104,7 +130,6 @@ int process_cd(char * option, char * path){
                 testMalloc(partByPartNewPath);
 
             }while((*(partByPartNewPath + i) = strtok(NULL,"/")));
-            //printf("------------- test2 -------------\n");
 
             int cpt = 0;
             while (i > cpt) {
@@ -117,14 +142,13 @@ int process_cd(char * option, char * path){
                     if (cpt - j >= 0) {
                         strcpy(partByPartNewPath[cpt - j], "-"); // on supprime la premiere sous partie précédente qui n'est pas deja supprimée
                     } else { //si il n'y en a pas, interpretation logique qui n'a pas ou peu de sens, on interprete physiquement
-                        return process_cd("-P", path);
+                        if(pathSave != NULL) return process_cd("-P", pathSave);
                     }
                 } else if (strcmp(partByPartNewPath[cpt], ".") == 0) {// a chaque fois qu'on rencontre .
                     strcpy(partByPartNewPath[cpt], "-"); // on supprime la sous partie
                 }
                 cpt += 1;
             }
-            //printf("------------- test3 -------------\n");
 
             char *newPath = malloc(strlen(path)); // on crée un string
             testMalloc(newPath);
@@ -137,31 +161,24 @@ int process_cd(char * option, char * path){
                 }
                 cpt2 += 1;
             }
-            //printf("------------- test4 -------------\n");
 
-            // on modifie les variables globales
+            if(isValidLo(newPath) != 0) { // si le chemin n'est pas valide, on appelle avec cd physique
+                return process_cd("-P", pathSave);
+            }else {
+                // on modifie les variables globales
+                strcpy(oldpwd, pwd);
+                strcpy(pwd, newPath);
 
-            strcpy(oldpwd, pwd);
-            strcpy(pwd,newPath);
-
-            // on prend aussi le chemin physique, pour les prochains cd
-            chdir(newPath);
-            getcwd(pwdPhy, BUFSIZE);
+                // on prend aussi le chemin physique, pour les prochains cd
+                chdir(newPath);
+                getcwd(pwdPhy, BUFSIZE);
+            }
         }
     }
     //printf("pwd = %s , pwdPhy = %s , oldpwd = %s\n", pwd, pwdPhy, oldpwd);
     return 1;
 }
-/*
- // fonction vérifiant que le chemin donné est bien un directory
-int is_directory(char * path){
-    struct stat st;
-    lstat(path,&st);
-    if(S_ISDIR(st.st_mode)){
-        return 0;
-    }else return 1;
-}
- */
+
 
 
 
@@ -310,23 +327,23 @@ cmds_struct lexer(char* ligne){
 char* promptGeneration(){
     char* curr_path_cpy=pwd;
     size_t curr_path_size=strlen(curr_path_cpy);
-    char* tmp_curr=malloc(sizeof(char)*25);
-    char* new_curr=malloc(sizeof(char)*25);
+    char* tmp_curr=malloc(sizeof(char)*26);
+    char* new_curr=malloc(sizeof(char)*26);
 
     if(curr_path_size>25){
         size_t beginning_size=curr_path_size-22;
-        //todo modifié par clément pour des tests
+        //todo modifié par clément pour éviter double free
         //tmp_curr = strcpy(tmp_curr,curr_path_cpy+beginning_size);
         strcpy(tmp_curr,curr_path_cpy+beginning_size);
         sprintf(new_curr,"...%s",tmp_curr);
     }
     else{
-        //todo modifié par clément pour des tests
+        //todo modifié par clément pour eviter double free
         //new_curr=strcpy(tmp_curr,curr_path_cpy);
         strcpy(new_curr,curr_path_cpy);
     }
-
-    char* res=malloc(sizeof(char)*45);
+//todo mofifié par clément avec son debugger (52 au lieu de 45)
+    char* res=malloc(sizeof(char)*52);
 
     sprintf(res,"\001\033[32m\002[%d]\001\033[36m\002%s\001\033[00m\002$ ",errorCode,new_curr);
     free(new_curr);
@@ -340,7 +357,7 @@ void initVar(){
     pwd = malloc((BUFSIZE));
     strcpy(pwd, getenv("PWD"));
     oldpwd = malloc(BUFSIZE);
-    strcpy(oldpwd,getenv("OLDPWD"));
+    strcpy(oldpwd,pwd);
 
     chdir(pwd);
     pwdPhy = malloc(BUFSIZE); //todo taille dynamique
