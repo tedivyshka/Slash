@@ -379,7 +379,9 @@ char* promptGeneration(){
         sprintf(new_curr,"...%s",tmp_curr);
     }
     else{
-        new_curr=strcpy(tmp_curr,curr_path_cpy);
+        //todo modifié par clément pour des tests
+        //new_curr=strcpy(tmp_curr,curr_path_cpy);
+        strcpy(new_curr,curr_path_cpy);
     }
 
     char* res=malloc(sizeof(char)*45);
