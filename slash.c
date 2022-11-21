@@ -288,13 +288,19 @@ void interpreter(cmds_struct liste) {
           printf("%s\n", pwd);
         }
     }
-    else{
+    else if(strcmp(*liste.cmds_array,"exit")==0){
         if(liste.taille_array>2){
             perror("Trop d'arguments pour la commande exit");
             exit(EXIT_FAILURE);
         }
-        int exit_value = atoi(*(liste.cmds_array+1));
-        exit(exit_value);
+        if(liste.taille_array == 2){
+          int exit_value = atoi(*(liste.cmds_array+1));
+          exit(exit_value);
+        }
+        else{
+          //TODO exit with last return value
+        }
+
     }
 }
 
