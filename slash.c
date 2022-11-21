@@ -42,7 +42,7 @@ int isValidPhy(char * path){
         stat(path,&st);
         return S_ISDIR(st.st_mode)?0:1;
     }else{
-        char *newPathTmp = malloc(strlen(pwdPhy) + strlen(path) + 1); // on crée un chemin contenant pwd et path = newPathTmp
+        char *newPathTmp = malloc(strlen(pwdPhy) + strlen(path) + 2); // on crée un chemin contenant pwd et path = newPathTmp
         sprintf(newPathTmp,"%s/%s",pwdPhy,path);
         struct stat st;
         stat(newPathTmp,&st);
@@ -110,13 +110,13 @@ int process_cd(char * option, char * path){
             getcwd(pwdPhy,BUFSIZE);
             free(tmp);
         }else {
-            char * pathSave = malloc(strlen(path));
+            char * pathSave = malloc(strlen(path) + 1);
             testMalloc(pathSave);
             strcpy(pathSave,path);
             if (path[0] != '/') { // si le chemin est relatif
-                char *newPathTmp = malloc(strlen(pwd) + strlen(path) + 1); // on crée un chemin contenant pwd et path = newPathTmp
+                char *newPathTmp = malloc(strlen(pwd) + strlen(path) + 2); // on crée un chemin contenant pwd et path = newPathTmp
                 sprintf(newPathTmp,"%s/%s",pwd,path);
-                path = realloc(path, strlen(newPathTmp));
+                path = realloc(path, strlen(newPathTmp) + 1);
                 strcpy(path, newPathTmp);
             }
 
@@ -150,7 +150,7 @@ int process_cd(char * option, char * path){
                 cpt += 1;
             }
 
-            char *newPath = malloc(strlen(path)); // on crée un string
+            char *newPath = malloc(BUFSIZE); // on crée un string
             testMalloc(newPath);
             strcpy(newPath,"");
             int cpt2 = 0;
