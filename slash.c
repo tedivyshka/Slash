@@ -299,6 +299,7 @@ void interpreter(cmds_struct liste) {
         }
         else{
           //TODO exit with last return value
+          exit(0);
         }
 
     }
