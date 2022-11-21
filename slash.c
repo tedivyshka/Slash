@@ -42,12 +42,12 @@ int process_cd(char * option, char * path){
         // todo verifier que path valide pour pwdPhy
     if(strcmp(option,"-P") == 0){
         if(path[0] == '-'){ // cas du retour en arriere
-            char * temp = malloc(BUFSIZ);
+            char * temp = malloc(BUFSIZE);
             strcpy(temp,oldpwd);
             strcpy(oldpwd,pwd);
             chdir(temp);
-            getcwd(pwd, BUFSIZ); //todo plus grandes valeurs si chemin + long ?
-            getcwd(pwdPhy,BUFSIZ);
+            getcwd(pwd, BUFSIZE); //todo plus grandes valeurs si chemin + long ?
+            getcwd(pwdPhy,BUFSIZE);
             free(temp);
         }else {
             // oldpwd prend l'ancienne valeur de pwd
@@ -55,8 +55,8 @@ int process_cd(char * option, char * path){
 
             if (path[0] == '/') { // chemin absolu : pwdPhy et pwd prennent la valeur du chemin, transformé en chemin physique
                 chdir(path);
-                getcwd(pwdPhy, BUFSIZ);
-                getcwd(pwd,BUFSIZ);
+                getcwd(pwdPhy, BUFSIZE);
+                getcwd(pwd,BUFSIZE);
 
             } else { // chemin relatif : pwdPhy et pwd prennent la valeur du pwd + "/" + chemin, transformé en chemin physique
                 char *newPath = malloc(sizeof(char) * (strlen(pwdPhy) + 1 + strlen(path)));
@@ -65,8 +65,8 @@ int process_cd(char * option, char * path){
                 newPath[strlen(pwdPhy)] = '/';
                 strcat(newPath, path);
                 chdir(newPath);
-                getcwd(pwdPhy, BUFSIZ);
-                getcwd(pwd,BUFSIZ);
+                getcwd(pwdPhy, BUFSIZE);
+                getcwd(pwd,BUFSIZE);
             }
         }
     }
@@ -74,13 +74,13 @@ int process_cd(char * option, char * path){
         // todo verifier que path valide pour pwd
     else{ // option -L or no option
         if(path[0] == '-'){ // cas du retour en arriere
-            char * tmp = malloc(BUFSIZ);
+            char * tmp = malloc(BUFSIZE);
             strcpy(tmp,oldpwd);
             strcpy(oldpwd,pwd);
-            strcat(pwd,tmp);
+            strcpy(pwd,tmp);
 
             chdir(tmp); // pwdPhy prend l'ancienne valeur de oldpwd, qu'on transforme en valeur physique
-            getcwd(pwdPhy,BUFSIZ);
+            getcwd(pwdPhy,BUFSIZE);
             free(tmp);
         }else {
             if (path[0] != '/') { // si le chemin est relatif
@@ -146,7 +146,7 @@ int process_cd(char * option, char * path){
 
             // on prend aussi le chemin physique, pour les prochains cd
             chdir(newPath);
-            getcwd(pwdPhy, BUFSIZ);
+            getcwd(pwdPhy, BUFSIZE);
         }
     }
     //printf("pwd = %s , pwdPhy = %s , oldpwd = %s\n", pwd, pwdPhy, oldpwd);
@@ -234,64 +234,6 @@ char** reallocToSizeArray(char** array,size_t taille_array){
     return array;
 }
 
-// 1 si racine
-// 0 sinon
-// -1 si erreur
-int is_root(DIR* dir){
-    struct stat root;
-    if(stat("/",&root)<0) return -1;
-
-    struct stat st;
-    if(fstat(dirfd(dir),&st)<0) return -1;
-
-    return (root.st_ino==st.st_ino && root.st_dev==st.st_dev);
-}
-
-char* pwd_physique(DIR* dir){
-  char* result =  malloc(sizeof(char) * BUFSIZE);
-  //Get current dir ino and dev number
-  struct stat st;
-  int dir_fd = dirfd(dir);
-  if(fstat(dir_fd,&st)<0) {
-      perror("Error fstat");
-      exit(1);
-    }
-  ino_t dir_ino=st.st_ino;
-  dev_t dir_dev=st.st_dev;
-
-  //Open parent directory
-  int parent_fd = openat(dir_fd,"..",O_RDONLY | O_DIRECTORY);
-  DIR* parent = fdopendir(parent_fd);
-
-  //Iterate parent directory, search for current directory
-  struct dirent *entry;
-  while((entry=readdir(parent))){
-    if(strcmp(entry->d_name,".")==0 || strcmp(entry->d_name,"..")==0) continue;
-
-    //Get entry stat
-    if(fstatat(dirfd(parent),entry->d_name,&st,0) < 0) {
-      perror("Erro fstatat");
-      exit(1);
-    }
-    //Compare entry with current directory
-    if(st.st_ino == dir_ino && st.st_dev == dir_dev){
-      push_string(result,entry->d_name);
-      break;
-    }
-  }
-
-  if(entry == NULL) {
-    perror("Directory not found..."); exit(1);
-  }
-  //If parent isnt root, continue recursively
-  if(!is_root(parent)){
-    push_string(result,"/");
-    push_string(result,pwd_physique(parent));
-  }
-  else push_string(result,"/");
-  return result;
-}
-
 void interpreter(cmds_struct liste) {
     if(strcmp(*liste.cmds_array,"cd")==0){ // todo faire une fonction qui choisit le bon appel ?
         if(liste.taille_array>3){
@@ -318,12 +260,12 @@ void interpreter(cmds_struct liste) {
             perror("Trop d'arguments pour la commande pwd");
             exit(EXIT_FAILURE);
         }
-        // appel de pwd avec *(liste.cmds_array+1)
-        DIR* dir;
+        // appel de cwd avec *(liste.cmds_array+1)
         int size = liste.taille_array - 1;
         if(size > 0 && (strcmp(liste.cmds_array[1],"-P")==0)){
-          dir = opendir(".");
-          printf("%s\n",pwd_physique(dir));
+          char* pwd_physique = malloc(sizeof(char)*BUFSIZE);
+          getcwd(pwd_physique,BUFSIZE);
+          printf("%s\n",pwd_physique);
         }
         else{
           printf("%s\n", pwd);
@@ -393,17 +335,17 @@ char* promptGeneration(){
 }
 
 void initVar(){
-    home = malloc(BUFSIZ);
+    home = malloc(BUFSIZE);
     strcpy(home,getenv("HOME"));
-    pwd = malloc((BUFSIZ));
+    pwd = malloc((BUFSIZE));
     strcpy(pwd, getenv("PWD"));
-    oldpwd = malloc(BUFSIZ);
+    oldpwd = malloc(BUFSIZE);
     strcpy(oldpwd,getenv("OLDPWD"));
 
     chdir(pwd);
-    pwdPhy = malloc(BUFSIZ); //todo taille dynamique
+    pwdPhy = malloc(BUFSIZE); //todo taille dynamique
     testMalloc(pwdPhy);
-    getcwd(pwdPhy, BUFSIZ); //todo taille dynamique
+    getcwd(pwdPhy, BUFSIZE); //todo taille dynamique
 }
 
 void run(){
