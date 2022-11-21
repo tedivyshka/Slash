@@ -332,17 +332,12 @@ char* promptGeneration(){
 
     if(curr_path_size>25){
         size_t beginning_size=curr_path_size-22;
-        //todo modifié par clément pour éviter double free
-        //tmp_curr = strcpy(tmp_curr,curr_path_cpy+beginning_size);
         strcpy(tmp_curr,curr_path_cpy+beginning_size);
         sprintf(new_curr,"...%s",tmp_curr);
     }
     else{
-        //todo modifié par clément pour eviter double free
-        //new_curr=strcpy(tmp_curr,curr_path_cpy);
         strcpy(new_curr,curr_path_cpy);
     }
-//todo mofifié par clément avec son debugger (52 au lieu de 45)
     char* res=malloc(sizeof(char)*52);
 
     sprintf(res,"\001\033[32m\002[%d]\001\033[36m\002%s\001\033[00m\002$ ",errorCode,new_curr);
@@ -381,6 +376,9 @@ void run(){
 
             interpreter(liste);
 
+        }
+        else{
+            exit(0);
         }
         //free(ligne);
 
