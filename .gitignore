@@ -3,3 +3,4 @@ CMakeLists.txt
 .sy5-2022-2023-projet-slash-autotests.nosync
 cmake-build-debug
 slash
+test-13-bis
