@@ -40,17 +40,17 @@ int isValidPhy(char * path){
     if(path[0] == '/'){
         struct stat st;
         stat(path,&st);
-        return S_ISDIR(st.st_mode)?0:1;
+        if(S_ISDIR(st.st_mode)){
+            return 0;
+        }
+        return 1;
     }else{
         char *newPathTmp = malloc(strlen(pwdPhy) + strlen(path) + 2); // on crée un chemin contenant pwd et path = newPathTmp
         sprintf(newPathTmp,"%s/%s",pwdPhy,path);
         struct stat st;
         stat(newPathTmp,&st);
         free(newPathTmp);
-        if(S_ISDIR(st.st_mode)){
-            return 0;
-        }
-        return 1;
+        return S_ISDIR(st.st_mode)?0:1;
     }
 }
 
@@ -66,8 +66,8 @@ int isValidLo(char * path){
 int process_cd(char * option, char * path){
     if(strcmp(option,"-P") == 0){
         if(isValidPhy(path) != 0) {
-            perror("bash: cd: a: Aucun fichier ou dossier de ce type\n");
-            exit(EXIT_FAILURE);
+            printf("bash: cd: %s: Aucun fichier ou dossier de ce type\n",path);
+            return 1;
         }
         if(path[0] == '-'){ // cas du retour en arriere
             char * temp = malloc(BUFSIZE);
@@ -142,7 +142,7 @@ int process_cd(char * option, char * path){
                     if (cpt - j >= 0) {
                         strcpy(partByPartNewPath[cpt - j], "-"); // on supprime la premiere sous partie précédente qui n'est pas deja supprimée
                     } else { //si il n'y en a pas, interpretation logique qui n'a pas ou peu de sens, on interprete physiquement
-                        if(pathSave != NULL) return process_cd("-P", pathSave);
+                        // return process_cd("-P", pathSave);
                     }
                 } else if (strcmp(partByPartNewPath[cpt], ".") == 0) {// a chaque fois qu'on rencontre .
                     strcpy(partByPartNewPath[cpt], "-"); // on supprime la sous partie
@@ -176,7 +176,7 @@ int process_cd(char * option, char * path){
         }
     }
     //printf("pwd = %s , pwdPhy = %s , oldpwd = %s\n", pwd, pwdPhy, oldpwd);
-    return 1;
+    return 0;
 }
 
 
@@ -256,18 +256,19 @@ void interpreter(cmds_struct liste) {
         if(liste.taille_array>3){
             perror("Trop d'arguments pour la commande cd");
             errorCode=1;
-        }else if(liste.taille_array == 1){
-            process_cd("-L", home);
+        }
+        else if(liste.taille_array == 1){
+            errorCode = process_cd("-L", home);
         }
         else if(liste.taille_array == 3) {
-            process_cd(*(liste.cmds_array + 1), *(liste.cmds_array + 2));
+            errorCode = process_cd(*(liste.cmds_array + 1), *(liste.cmds_array + 2));
         }
         else{ // quand il n'y a pas d'option/ pas de path
             if(strcmp(*(liste.cmds_array + 1),"-L") == 0 || strcmp(*(liste.cmds_array + 1),"-P") == 0){ // pas de path
-                process_cd(*(liste.cmds_array + 1), home);
+                errorCode = process_cd(*(liste.cmds_array + 1), home);
             }
             else {// pas d'option
-                process_cd("-L", *(liste.cmds_array + 1));
+               errorCode = process_cd("-L", *(liste.cmds_array + 1));
             }
         }
     }
