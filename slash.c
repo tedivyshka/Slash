@@ -313,9 +313,10 @@ cmds_struct lexer(char* ligne){
     token=strtok(ligne," ");
     do{
         taille_token=strlen(token);
+
         if(taille_token>=MAX_ARGS_STRLEN){
             perror("MAX_ARGS_STRLEN REACHED");
-            exit(errorCode);
+            exit(1);
         }
 
         cmds_array=checkArraySize(cmds_array,taille_array,taille_array_init);
@@ -383,7 +384,9 @@ void run(){
 
 
             interpreter(liste);
-
+        }
+        else if(rl_point==rl_end){
+            exit(errorCode);
         }
         //free(ligne);
 
