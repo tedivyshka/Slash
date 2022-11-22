@@ -170,8 +170,6 @@ int process_cd(char * option, char * path){
             }
             while((*(partByPartNewPath + i) = strtok(NULL,"/")));
 
-            //free(pathSave);
-
             int cpt = 0;
             while (i > cpt) {
                 if (strcmp(partByPartNewPath[cpt], "..") == 0) { // a chaque fois qu'on rencontre ..
@@ -180,7 +178,7 @@ int process_cd(char * option, char * path){
                     while (strcmp(partByPartNewPath[cpt - j], "-") == 0 && cpt - j >= 0) {
                         j += 1;
                     }
-                    if (cpt - j >= 0) {
+                    if (cpt - j > 0) {
                         strcpy(partByPartNewPath[cpt - j], "-"); // on supprime la premiere sous partie précédente qui n'est pas deja supprimée
                     } else { //si il n'y en a pas, interpretation logique qui n'a pas ou peu de sens, on interprete physiquement
                         return process_cd("-P", path);
@@ -203,6 +201,7 @@ int process_cd(char * option, char * path){
                 }
                 cpt2 += 1;
             }
+
             if(isValidLo(newPath) != 0) { // si le chemin n'est pas valide, on appelle avec cd physique
                 free(newPath);
                 return process_cd("-P", path);
