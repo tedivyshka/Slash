@@ -31,7 +31,7 @@ char * home;
 
 void testMalloc(void * ptr){
     if(ptr == NULL){
-        printf("Erreur de malloc() ou realloc().\n");
+        perror("Erreur de malloc() ou realloc().\n");
         exit(EXIT_FAILURE);
     }
 }
@@ -255,27 +255,26 @@ void interpreter(cmds_struct liste) {
     if(strcmp(*liste.cmds_array,"cd")==0){ // todo faire une fonction qui choisit le bon appel ?
         if(liste.taille_array>3){
             perror("Trop d'arguments pour la commande cd");
-            exit(EXIT_FAILURE);
+            errorCode=1;
         }else if(liste.taille_array == 1){
             process_cd("-L", home);
-
-        }else if(liste.taille_array == 3) {
+        }
+        else if(liste.taille_array == 3) {
             process_cd(*(liste.cmds_array + 1), *(liste.cmds_array + 2));
-
-        }else{ // quand il n'y a pas d'option/ pas de path
+        }
+        else{ // quand il n'y a pas d'option/ pas de path
             if(strcmp(*(liste.cmds_array + 1),"-L") == 0 || strcmp(*(liste.cmds_array + 1),"-P") == 0){ // pas de path
                 process_cd(*(liste.cmds_array + 1), home);
-
-            }else {// pas d'option
+            }
+            else {// pas d'option
                 process_cd("-L", *(liste.cmds_array + 1));
-
             }
         }
     }
     else if(strcmp(*liste.cmds_array,"pwd")==0){
         if(liste.taille_array>2){
             perror("Trop d'arguments pour la commande pwd");
-            exit(EXIT_FAILURE);
+            errorCode=1;
         }
         // appel de cwd avec *(liste.cmds_array+1)
         int size = liste.taille_array - 1;
@@ -291,17 +290,15 @@ void interpreter(cmds_struct liste) {
     else if(strcmp(*liste.cmds_array,"exit")==0){
         if(liste.taille_array>2){
             perror("Trop d'arguments pour la commande exit");
-            exit(EXIT_FAILURE);
+            errorCode=1;
         }
         if(liste.taille_array == 2){
           int exit_value = atoi(*(liste.cmds_array+1));
           exit(exit_value);
         }
         else{
-          //TODO exit with last return value
-          exit(0);
+          exit(errorCode);
         }
-
     }
 }
 
@@ -316,6 +313,10 @@ cmds_struct lexer(char* ligne){
     token=strtok(ligne," ");
     do{
         taille_token=strlen(token);
+        if(taille_token>=MAX_ARGS_STRLEN){
+            perror("MAX_ARGS_STRLEN REACHED");
+            exit(errorCode);
+        }
 
         cmds_array=checkArraySize(cmds_array,taille_array,taille_array_init);
         *(cmds_array+taille_array)=malloc(sizeof(char)*(taille_token+1));
@@ -383,9 +384,6 @@ void run(){
 
             interpreter(liste);
 
-        }
-        else{
-            exit(0);
         }
         //free(ligne);
 
