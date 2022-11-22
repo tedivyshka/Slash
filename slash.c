@@ -35,6 +35,35 @@ void testMalloc(void * ptr){
         exit(EXIT_FAILURE);
     }
 }
+
+void freeCmdsArray(cmds_struct array){
+    for(int i=0;i<array.taille_array;i++){
+        free(*(array.cmds_array+i));
+    }
+    free(array.cmds_array);
+}
+
+
+
+// double la taille allouée à la variable si nécessaire
+char** checkArraySize(char** array,size_t taille_array,size_t* taille_array_initiale){
+    if(taille_array==MAX_ARGS_NUMBER){
+        perror("MAX ARGS NUMBER REACHED");
+        exit(1);
+    }
+    if(taille_array==*(taille_array_initiale)){
+        *(taille_array_initiale)*=2;
+        array=realloc(array,sizeof(char *)*(*taille_array_initiale));
+        testMalloc(array);
+    }
+    return array;
+}
+
+char** reallocToSizeArray(char** array,size_t taille_array){
+    array=realloc(array, sizeof(char*)*(taille_array+1));
+    return array;
+}
+
 // 0 == true
 int isValidPhy(char * path){
     if(path[0] == '/'){
@@ -55,10 +84,13 @@ int isValidPhy(char * path){
     }
 }
 
-int isValidLo(char * path){
+int isValidLo(char* path){
     struct stat st;
     stat(path,&st);
-    return S_ISDIR(st.st_mode)?0:1;
+    if(S_ISDIR(st.st_mode)){
+        return 0;
+    }
+    return 1;
 }
 
 /*
@@ -122,18 +154,23 @@ int process_cd(char * option, char * path){
                 sprintf(newPathTmp,"%s/%s",pwd,pathSave);
                 pathSave = realloc(pathSave, sizeof(char) * (strlen(newPathTmp) + 1));
                 strcpy(pathSave, newPathTmp);
+                free(newPathTmp);
             }
 
             char **partByPartNewPath = malloc(sizeof(char *));
+            testMalloc(partByPartNewPath);
 
             int i = 0;
             *(partByPartNewPath + i) = strtok(pathSave, "/");
             do{
                 i += 1;
-                partByPartNewPath = realloc(partByPartNewPath, sizeof(char *) * (i + 1));
+                partByPartNewPath = realloc(partByPartNewPath, sizeof(char *) * (i+1));
                 testMalloc(partByPartNewPath);
 
-            }while((*(partByPartNewPath + i) = strtok(NULL,"/")));
+            }
+            while((*(partByPartNewPath + i) = strtok(NULL,"/")));
+
+            //free(pathSave);
 
             int cpt = 0;
             while (i > cpt) {
@@ -156,6 +193,7 @@ int process_cd(char * option, char * path){
 
             char *newPath = malloc(sizeof(char) * (BUFSIZE)); // on crée un string
             testMalloc(newPath);
+
             strcpy(newPath,"");
             int cpt2 = 0;
             while (i > cpt2) {
@@ -166,6 +204,7 @@ int process_cd(char * option, char * path){
                 cpt2 += 1;
             }
             if(isValidLo(newPath) != 0) { // si le chemin n'est pas valide, on appelle avec cd physique
+                free(newPath);
                 return process_cd("-P", path);
             }
             else{
@@ -176,24 +215,11 @@ int process_cd(char * option, char * path){
                 // on prend aussi le chemin physique, pour les prochains cd
                 chdir(newPath);
                 getcwd(pwdPhy, BUFSIZE);
+                free(newPath);
             }
         }
     }
     return 0;
-}
-
-// double la taille allouée à la variable si nécessaire
-char** checkArraySize(char** array,size_t taille_array,size_t* taille_array_initiale){
-    if(taille_array==MAX_ARGS_NUMBER){
-        perror("MAX ARGS NUMBER REACHED");
-        exit(1);
-    }
-    if(taille_array==*(taille_array_initiale)){
-        *(taille_array_initiale)*=2;
-        array=realloc(array,sizeof(char *)*(*taille_array_initiale));
-        testMalloc(array);
-    }
-    return array;
 }
 
 void interpreter(cmds_struct liste) {
@@ -223,7 +249,7 @@ void interpreter(cmds_struct liste) {
             errorCode=1;
         }
         // appel de cwd avec *(liste.cmds_array+1)
-        int size = liste.taille_array - 1;
+        size_t size = liste.taille_array - 1;
         if(size > 0 && (strcmp(liste.cmds_array[1],"-P")==0)){
             char* pwd_physique = malloc(sizeof(char)*BUFSIZE);
             getcwd(pwd_physique,BUFSIZE);
@@ -273,6 +299,8 @@ cmds_struct lexer(char* ligne){
     }
     while((token = strtok(NULL, " ")));
 
+
+    //reallocToSizeArray(cmds_array,taille_array);
     free(token);
     free(taille_array_init);
     cmds_struct cmdsStruct = {.cmds_array=cmds_array, .taille_array=taille_array};
@@ -334,7 +362,7 @@ void run(){
         else if(rl_point==rl_end){
             exit(errorCode);
         }
-        free(liste.cmds_array);
+        freeCmdsArray(liste);
         free(ligne);
     }
 }
