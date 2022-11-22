@@ -44,7 +44,8 @@ int isValidPhy(char * path){
             return 0;
         }
         return 1;
-    }else{
+    }
+    else{
         char *newPathTmp = malloc(sizeof(char) * (strlen(pwdPhy) + strlen(path) + 2)); // on crée un chemin contenant pwd et path = newPathTmp
         sprintf(newPathTmp,"%s/%s",pwdPhy,path);
         struct stat st;
@@ -80,7 +81,8 @@ int process_cd(char * option, char * path){
             getcwd(pwd, BUFSIZE); //todo plus grandes valeurs si chemin + long ?
             getcwd(pwdPhy,BUFSIZE);
             free(temp);
-        }else {
+        }
+        else {
             // oldpwd prend l'ancienne valeur de pwd
             strcpy(oldpwd, pwd);
 
@@ -89,7 +91,8 @@ int process_cd(char * option, char * path){
                 getcwd(pwdPhy, BUFSIZE);
                 getcwd(pwd,BUFSIZE);
 
-            } else { // chemin relatif : pwdPhy et pwd prennent la valeur du pwdPhy + "/" + chemin, transformé en chemin physique
+            }
+            else { // chemin relatif : pwdPhy et pwd prennent la valeur du pwdPhy + "/" + chemin, transformé en chemin physique
                 char *newPath = malloc(sizeof(char) * ((strlen(pwdPhy) + 2 + strlen(path))));
                 testMalloc(newPath);
                 sprintf(newPath,"%s/%s",pwdPhy,path);
@@ -99,7 +102,6 @@ int process_cd(char * option, char * path){
             }
         }
     }
-
     else{ // option -L or no option
         if(path[0] == '-'){ // cas du retour en arriere
             char * tmp = malloc(sizeof(char) * (BUFSIZE));
@@ -166,7 +168,8 @@ int process_cd(char * option, char * path){
 
             if(isValidLo(newPath) != 0) { // si le chemin n'est pas valide, on appelle avec cd physique
                 return process_cd("-P", pathSave);
-            }else {
+            }
+            else{
                 // on modifie les variables globales
                 strcpy(oldpwd, pwd);
                 strcpy(pwd, newPath);
@@ -180,50 +183,6 @@ int process_cd(char * option, char * path){
     return 0;
 }
 
-
-
-
-
-void push_string(char* str1,char* str2){
-  char *tmp = strdup(str1);
-  strcpy(str1, str2);
-  strcat(str1, tmp);
-  free(tmp);
-}
-
-void printListe(cmds_struct liste) {
-    int count=0;
-    int countString=0;
-    char* string=*liste.cmds_array;
-    char c;
-    while(count!=liste.taille_array){
-        c=*(string+countString);
-        while(c!=EOF && c!='\0'){
-            printf("%c",c);
-            countString++;
-            c=*(string+countString);
-        }
-        printf("\n");
-        countString=0;
-        count++;
-        string=*(liste.cmds_array+count);
-    }
-}
-
-// double la taille allouée à la variable si nécessaire
-char* checkStringSize(char* string,size_t taille_string,size_t* taille_string_initiale){
-    if(taille_string==MAX_ARGS_STRLEN){
-        perror("MAX ARGS STRLEN REACHED");
-        exit(EXIT_FAILURE);
-    }
-    if(taille_string==*(taille_string_initiale)){
-        *(taille_string_initiale)*=2;
-        string=realloc(string,sizeof(char)*(*taille_string_initiale));
-        testMalloc(string);
-    }
-    return string;
-}
-
 // double la taille allouée à la variable si nécessaire
 char** checkArraySize(char** array,size_t taille_array,size_t* taille_array_initiale){
     if(taille_array==MAX_ARGS_NUMBER){
@@ -235,19 +194,6 @@ char** checkArraySize(char** array,size_t taille_array,size_t* taille_array_init
         array=realloc(array,sizeof(char *)*(*taille_array_initiale));
         testMalloc(array);
     }
-    return array;
-}
-
-char* reallocToSizeString(char* string,size_t taille_string){
-    *(string+taille_string)='\0';
-    string=realloc(string, sizeof(char)*(taille_string+2));
-    testMalloc(string);
-    return string;
-}
-
-char** reallocToSizeArray(char** array,size_t taille_array){
-    array=realloc(array, sizeof(char *)*taille_array);
-    testMalloc(array);
     return array;
 }
 
@@ -280,12 +226,13 @@ void interpreter(cmds_struct liste) {
         // appel de cwd avec *(liste.cmds_array+1)
         int size = liste.taille_array - 1;
         if(size > 0 && (strcmp(liste.cmds_array[1],"-P")==0)){
-          char* pwd_physique = malloc(sizeof(char)*BUFSIZE);
-          getcwd(pwd_physique,BUFSIZE);
-          printf("%s\n",pwd_physique);
+            char* pwd_physique = malloc(sizeof(char)*BUFSIZE);
+            getcwd(pwd_physique,BUFSIZE);
+            printf("%s\n",pwd_physique);
+            free(pwd_physique);
         }
         else{
-          printf("%s\n", pwd);
+            printf("%s\n", pwd);
         }
     }
     else if(strcmp(*liste.cmds_array,"exit")==0){
@@ -294,11 +241,11 @@ void interpreter(cmds_struct liste) {
             errorCode=1;
         }
         if(liste.taille_array == 2){
-          int exit_value = atoi(*(liste.cmds_array+1));
-          exit(exit_value);
+            int exit_value = atoi(*(liste.cmds_array+1));
+            exit(exit_value);
         }
         else{
-          exit(errorCode);
+            exit(errorCode);
         }
     }
 }
@@ -348,7 +295,7 @@ char* promptGeneration(){
     else{
         strcpy(new_curr,curr_path_cpy);
     }
-    char* res=malloc(sizeof(char)*(52+ strlen(new_curr)));
+    char* res=malloc(sizeof(char)*(55+strlen(new_curr)));
 
     sprintf(res,"\001\033[32m\002[%d]\001\033[36m\002%s\001\033[00m\002$ ",errorCode,new_curr);
     free(new_curr);
@@ -374,24 +321,22 @@ void run(){
     rl_outstream=stderr;
     initVar();
     char* ligne;
+    cmds_struct liste;
     while(1){
-
         ligne=readline(promptGeneration());
 
         if(ligne && *ligne){
             add_history(ligne);
 
-            cmds_struct liste=lexer(ligne);
-
+            liste=lexer(ligne);
 
             interpreter(liste);
         }
         else if(rl_point==rl_end){
             exit(errorCode);
         }
-        //free(ligne);
-
-
+        free(liste.cmds_array);
+        free(ligne);
     }
 }
 
