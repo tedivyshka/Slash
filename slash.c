@@ -36,13 +36,18 @@ void testMalloc(void * ptr){
     }
 }
 
-void freeCmdsArray(cmds_struct array){
-    for(int i=0;i<array.taille_array;i++){
-        free(*(array.cmds_array+i));
+void freeCmdsArray(cmds_struct array) {
+    for (int i = 0; i < array.taille_array; i++) {
+        free(*(array.cmds_array + i));
     }
     free(array.cmds_array);
 }
 
+void freeArray(char** array,size_t taille){
+    for(int i=0;i<taille-3;i++){
+        free(array[i]);
+    }
+}
 
 
 // double la taille allouée à la variable si nécessaire
@@ -51,7 +56,7 @@ char** checkArraySize(char** array,size_t taille_array,size_t* taille_array_init
         perror("MAX ARGS NUMBER REACHED");
         exit(1);
     }
-    if(taille_array==*(taille_array_initiale)){
+    if(taille_array>=*(taille_array_initiale)){
         *(taille_array_initiale)*=2;
         array=realloc(array,sizeof(char *)*(*taille_array_initiale));
         testMalloc(array);
@@ -60,7 +65,7 @@ char** checkArraySize(char** array,size_t taille_array,size_t* taille_array_init
 }
 
 char** reallocToSizeArray(char** array,size_t taille_array){
-    array=realloc(array, sizeof(char*)*(taille_array+1));
+    array=realloc(array, sizeof(char*)*(taille_array));
     return array;
 }
 
@@ -86,11 +91,31 @@ int isValidPhy(char * path){
 
 int isValidLo(char* path){
     struct stat st;
-    stat(path,&st);
-    if(S_ISDIR(st.st_mode)){
+    int res;
+    res=stat(path,&st);
+    if(res==0 && S_ISDIR(st.st_mode)){
         return 0;
     }
     return 1;
+}
+
+void printListe(cmds_struct liste) {
+    int count=0;
+    int countString=0;
+    char* string=*liste.cmds_array;
+    char c;
+    while(count!=liste.taille_array){
+        c=*(string+countString);
+        while(c!=EOF && c!='\0'){
+            printf("%d : %c\n",count,c);
+            countString++;
+            c=*(string+countString);
+        }
+        printf("\n");
+        countString=0;
+        count++;
+        string=*(liste.cmds_array+count);
+    }
 }
 
 /*
@@ -99,13 +124,13 @@ int isValidLo(char* path){
 int process_cd(char * option, char * path){
     if(strcmp(option,"-P") == 0){
         if(isValidPhy(path) != 0) {
-            char * er = malloc(sizeof(char) * (strlen(path) + 48));
+            char* er = malloc(sizeof(char) * (strlen(path) + 48));
             sprintf(er,"bash: cd: %s: Aucun fichier ou dossier de ce type",path);
             perror(er);
             return 1;
         }
         if(path[0] == '-'){ // cas du retour en arriere
-            char * temp = malloc(sizeof(char) * (BUFSIZE));
+            char * temp = malloc(sizeof(char) * MAX_ARGS_STRLEN);
             strcpy(temp,oldpwd);
             strcpy(oldpwd,pwd);
 
@@ -122,9 +147,8 @@ int process_cd(char * option, char * path){
                 chdir(path);
                 getcwd(pwdPhy, BUFSIZE);
                 getcwd(pwd,BUFSIZE);
-
             }
-            else { // chemin relatif : pwdPhy et pwd prennent la valeur du pwdPhy + "/" + chemin, transformé en chemin physique
+            else{ // chemin relatif : pwdPhy et pwd prennent la valeur du pwdPhy + "/" + chemin, transformé en chemin physique
                 char *newPath = malloc(sizeof(char) * ((strlen(pwdPhy) + 2 + strlen(path))));
                 testMalloc(newPath);
                 sprintf(newPath,"%s/%s",pwdPhy,path);
@@ -136,7 +160,7 @@ int process_cd(char * option, char * path){
     }
     else{ // option -L or no option
         if(path[0] == '-'){ // cas du retour en arriere
-            char * tmp = malloc(sizeof(char) * (BUFSIZE));
+            char * tmp = malloc(sizeof(char) * MAX_ARGS_STRLEN);
             strcpy(tmp,oldpwd);
             strcpy(oldpwd,pwd);
             strcpy(pwd,tmp);
@@ -157,6 +181,36 @@ int process_cd(char * option, char * path){
                 free(newPathTmp);
             }
 
+            /*
+            char** partByPartNewPath=malloc(sizeof(char*));
+            testMalloc(partByPartNewPath);
+            char* token;
+            size_t* taille_array_init= malloc(sizeof(size_t));
+            testMalloc(taille_array_init);
+            size_t taille_token;
+            size_t taille_array=0;
+            *taille_array_init=1;
+
+            token=strtok(pathSave,"/");
+            do{
+                taille_token=strlen(token);
+                if(taille_array==MAX_ARGS_STRLEN){
+                    perror("MAX ARGS LEN REACHED");
+                    exit(EXIT_FAILURE);
+                }
+
+                *(partByPartNewPath+taille_array)=malloc(sizeof(char)*(taille_token+1));
+                *(partByPartNewPath+taille_array)=memcpy(*(partByPartNewPath+taille_array),token,taille_token+1);
+                taille_array++;
+            }
+            while((token = strtok(NULL, "/")));
+
+            free(token);
+            free(taille_array_init);
+
+            size_t i=taille_array;
+            */
+
             char **partByPartNewPath = malloc(sizeof(char *));
             testMalloc(partByPartNewPath);
 
@@ -173,18 +227,22 @@ int process_cd(char * option, char * path){
             int cpt = 0;
             while (i > cpt) {
                 if (strcmp(partByPartNewPath[cpt], "..") == 0) { // a chaque fois qu'on rencontre ..
-                    strcpy(partByPartNewPath[cpt], "-");
+                    *(partByPartNewPath+cpt)="-";
+                    //strcpy(partByPartNewPath[cpt], "-");
                     int j = 1;
                     while (strcmp(partByPartNewPath[cpt - j], "-") == 0 && cpt - j >= 0) {
                         j += 1;
                     }
                     if (cpt - j > 0) {
-                        strcpy(partByPartNewPath[cpt - j], "-"); // on supprime la premiere sous partie précédente qui n'est pas deja supprimée
+                        *(partByPartNewPath+(cpt-j))="-";
+                        //strcpy(partByPartNewPath[cpt - j], "-"); // on supprime la premiere sous partie précédente qui n'est pas deja supprimée
                     } else { //si il n'y en a pas, interpretation logique qui n'a pas ou peu de sens, on interprete physiquement
+                        //free(partByPartNewPath);
                         return process_cd("-P", path);
                     }
                 } else if (strcmp(partByPartNewPath[cpt], ".") == 0) {// a chaque fois qu'on rencontre .
-                    strcpy(partByPartNewPath[cpt], "-"); // on supprime la sous partie
+                    *(partByPartNewPath+cpt)="-";
+                    //strcpy(partByPartNewPath[cpt], "-"); // on supprime la sous partie
                 }
                 cpt += 1;
             }
@@ -204,6 +262,7 @@ int process_cd(char * option, char * path){
 
             if(isValidLo(newPath) != 0) { // si le chemin n'est pas valide, on appelle avec cd physique
                 free(newPath);
+                //free(partByPartNewPath);
                 return process_cd("-P", path);
             }
             else{
@@ -216,6 +275,7 @@ int process_cd(char * option, char * path){
                 getcwd(pwdPhy, BUFSIZE);
                 free(newPath);
             }
+            //free(partByPartNewPath);
         }
     }
     return 0;
@@ -276,8 +336,10 @@ void interpreter(cmds_struct liste) {
 
 cmds_struct lexer(char* ligne){
     char** cmds_array=malloc(sizeof(char*));
+    testMalloc(cmds_array);
     char* token;
     size_t* taille_array_init= malloc(sizeof(size_t));
+    testMalloc(taille_array_init);
     size_t taille_token;
     size_t taille_array=0;
     *taille_array_init=1;
@@ -311,7 +373,9 @@ char* promptGeneration(){
     char* curr_path_cpy=pwd;
     size_t curr_path_size=strlen(curr_path_cpy);
     char* tmp_curr=malloc(sizeof(char)*26);
+    testMalloc(tmp_curr);
     char* new_curr=malloc(sizeof(char)*26);
+    testMalloc(new_curr);
 
     if(curr_path_size>25){
         size_t beginning_size=curr_path_size-22;
@@ -349,7 +413,8 @@ void run(){
     char* ligne;
     cmds_struct liste;
     while(1){
-        ligne=readline(promptGeneration());
+        char* tmp=promptGeneration();
+        ligne=readline(tmp);
 
         if(ligne && *ligne){
             add_history(ligne);
@@ -363,6 +428,7 @@ void run(){
         }
         freeCmdsArray(liste);
         free(ligne);
+        free(tmp);
     }
 }
 
