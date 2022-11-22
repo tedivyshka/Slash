@@ -117,17 +117,17 @@ int process_cd(char * option, char * path){
             char * pathSave = malloc(sizeof(char) * (strlen(path) + 1));
             testMalloc(pathSave);
             strcpy(pathSave,path);
-            if (path[0] != '/') { // si le chemin est relatif
-                char *newPathTmp = malloc(strlen(pwd) + strlen(path) + 2); // on crée un chemin contenant pwd et path = newPathTmp
-                sprintf(newPathTmp,"%s/%s",pwd,path);
-                path = realloc(path, sizeof(char) * (strlen(newPathTmp) + 1));
-                strcpy(path, newPathTmp);
+            if (pathSave[0] != '/') { // si le chemin est relatif
+                char *newPathTmp = malloc(sizeof(char) * (strlen(pwd) + strlen(pathSave) + 2)); // on crée un chemin contenant pwd et path = newPathTmp
+                sprintf(newPathTmp,"%s/%s",pwd,pathSave);
+                pathSave = realloc(pathSave, sizeof(char) * (strlen(newPathTmp) + 1));
+                strcpy(pathSave, newPathTmp);
             }
 
             char **partByPartNewPath = malloc(sizeof(char *));
 
             int i = 0;
-            *(partByPartNewPath + i) = strtok(path, "/");
+            *(partByPartNewPath + i) = strtok(pathSave, "/");
             do{
                 i += 1;
                 partByPartNewPath = realloc(partByPartNewPath, sizeof(char *) * (i + 1));
@@ -146,7 +146,7 @@ int process_cd(char * option, char * path){
                     if (cpt - j >= 0) {
                         strcpy(partByPartNewPath[cpt - j], "-"); // on supprime la premiere sous partie précédente qui n'est pas deja supprimée
                     } else { //si il n'y en a pas, interpretation logique qui n'a pas ou peu de sens, on interprete physiquement
-                        // return process_cd("-P", pathSave);
+                        return process_cd("-P", path);
                     }
                 } else if (strcmp(partByPartNewPath[cpt], ".") == 0) {// a chaque fois qu'on rencontre .
                     strcpy(partByPartNewPath[cpt], "-"); // on supprime la sous partie
@@ -165,9 +165,8 @@ int process_cd(char * option, char * path){
                 }
                 cpt2 += 1;
             }
-
             if(isValidLo(newPath) != 0) { // si le chemin n'est pas valide, on appelle avec cd physique
-                return process_cd("-P", pathSave);
+                return process_cd("-P", path);
             }
             else{
                 // on modifie les variables globales
