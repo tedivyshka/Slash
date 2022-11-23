@@ -6,12 +6,8 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <stdlib.h>
-#include <dirent.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
-#include <errno.h>
 #include <unistd.h>
 
 typedef struct cmds_struct{
@@ -43,13 +39,6 @@ void freeCmdsArray(cmds_struct array) {
     free(array.cmds_array);
 }
 
-void freeArray(char** array,size_t taille){
-    for(int i=0;i<taille-3;i++){
-        free(array[i]);
-    }
-}
-
-
 // double la taille allouée à la variable si nécessaire
 char** checkArraySize(char** array,size_t taille_array,size_t* taille_array_initiale){
     if(taille_array==MAX_ARGS_NUMBER){
@@ -61,11 +50,6 @@ char** checkArraySize(char** array,size_t taille_array,size_t* taille_array_init
         array=realloc(array,sizeof(char *)*(*taille_array_initiale));
         testMalloc(array);
     }
-    return array;
-}
-
-char** reallocToSizeArray(char** array,size_t taille_array){
-    array=realloc(array, sizeof(char*)*(taille_array));
     return array;
 }
 
@@ -155,6 +139,7 @@ int process_cd(char * option, char * path){
                 chdir(newPath);
                 getcwd(pwdPhy, BUFSIZE);
                 getcwd(pwd,BUFSIZE);
+                free(newPath);
             }
         }
     }
@@ -181,8 +166,7 @@ int process_cd(char * option, char * path){
                 free(newPathTmp);
             }
 
-            /*
-            char** partByPartNewPath=malloc(sizeof(char*));
+            char** partByPartNewPath=malloc(sizeof(char*)*MAX_ARGS_STRLEN);
             testMalloc(partByPartNewPath);
             char* token;
             size_t* taille_array_init= malloc(sizeof(size_t));
@@ -193,56 +177,41 @@ int process_cd(char * option, char * path){
 
             token=strtok(pathSave,"/");
             do{
-                taille_token=strlen(token);
-                if(taille_array==MAX_ARGS_STRLEN){
-                    perror("MAX ARGS LEN REACHED");
-                    exit(EXIT_FAILURE);
-                }
+                if(token!=NULL){
+                    taille_token=strlen(token);
+                    if(taille_array==MAX_ARGS_STRLEN){
+                        perror("MAX ARGS LEN REACHED");
+                        exit(EXIT_FAILURE);
+                    }
 
-                *(partByPartNewPath+taille_array)=malloc(sizeof(char)*(taille_token+1));
-                *(partByPartNewPath+taille_array)=memcpy(*(partByPartNewPath+taille_array),token,taille_token+1);
-                taille_array++;
+                    *(partByPartNewPath+taille_array)=malloc(sizeof(char)*(taille_token+1));
+                    *(partByPartNewPath+taille_array)=memcpy(*(partByPartNewPath+taille_array),token,taille_token+1);
+                    taille_array++;
+                }
             }
             while((token = strtok(NULL, "/")));
 
             free(token);
             free(taille_array_init);
+            free(pathSave);
 
             size_t i=taille_array;
-            */
-
-            char **partByPartNewPath = malloc(sizeof(char *));
-            testMalloc(partByPartNewPath);
-
-            int i = 0;
-            *(partByPartNewPath + i) = strtok(pathSave, "/");
-            do{
-                i += 1;
-                partByPartNewPath = realloc(partByPartNewPath, sizeof(char *) * (i+1));
-                testMalloc(partByPartNewPath);
-
-            }
-            while((*(partByPartNewPath + i) = strtok(NULL,"/")));
 
             int cpt = 0;
             while (i > cpt) {
                 if (strcmp(partByPartNewPath[cpt], "..") == 0) { // a chaque fois qu'on rencontre ..
-                    *(partByPartNewPath+cpt)="-";
-                    //strcpy(partByPartNewPath[cpt], "-");
+                    strcpy(partByPartNewPath[cpt], "-");
                     int j = 1;
                     while (strcmp(partByPartNewPath[cpt - j], "-") == 0 && cpt - j >= 0) {
                         j += 1;
                     }
                     if (cpt - j > 0) {
-                        *(partByPartNewPath+(cpt-j))="-";
-                        //strcpy(partByPartNewPath[cpt - j], "-"); // on supprime la premiere sous partie précédente qui n'est pas deja supprimée
+                        strcpy(partByPartNewPath[cpt - j], "-"); // on supprime la premiere sous partie précédente qui n'est pas deja supprimée
                     } else { //si il n'y en a pas, interpretation logique qui n'a pas ou peu de sens, on interprete physiquement
-                        //free(partByPartNewPath);
                         return process_cd("-P", path);
                     }
                 } else if (strcmp(partByPartNewPath[cpt], ".") == 0) {// a chaque fois qu'on rencontre .
-                    *(partByPartNewPath+cpt)="-";
-                    //strcpy(partByPartNewPath[cpt], "-"); // on supprime la sous partie
+                    strcpy(partByPartNewPath[cpt], "-"); // on supprime la sous partie
                 }
                 cpt += 1;
             }
@@ -257,12 +226,13 @@ int process_cd(char * option, char * path){
                     strcat(newPath, "/"); // en plaçant un "/" entre chaque parties
                     strcat(newPath, partByPartNewPath[cpt2]);
                 }
+                free(partByPartNewPath[cpt2]);
                 cpt2 += 1;
             }
 
             if(isValidLo(newPath) != 0) { // si le chemin n'est pas valide, on appelle avec cd physique
                 free(newPath);
-                //free(partByPartNewPath);
+                free(partByPartNewPath);
                 return process_cd("-P", path);
             }
             else{
@@ -275,7 +245,8 @@ int process_cd(char * option, char * path){
                 getcwd(pwdPhy, BUFSIZE);
                 free(newPath);
             }
-            //free(partByPartNewPath);
+
+            free(partByPartNewPath);
         }
     }
     return 0;
@@ -361,7 +332,6 @@ cmds_struct lexer(char* ligne){
     while((token = strtok(NULL, " ")));
 
 
-    //reallocToSizeArray(cmds_array,taille_array);
     free(token);
     free(taille_array_init);
     cmds_struct cmdsStruct = {.cmds_array=cmds_array, .taille_array=taille_array};
