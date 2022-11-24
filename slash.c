@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include "slash.h"
+#include <errno.h>
 
 
 // Variables globales :
@@ -24,6 +25,7 @@ char * home;
  */
 void testMalloc(void * ptr){
     if(ptr == NULL){
+        errno = 1;
         perror("Erreur de malloc() ou realloc().\n");
         exit(EXIT_FAILURE);
     }
@@ -125,14 +127,12 @@ void printListe(cmds_struct liste) {
  */
 int process_cd(char * option, char * path){
     if(strcmp(option,"-P") == 0){ // option "-P"
-        if(isPathValidPhy(path) != 0) { // if path isn't valid, an error message is displayed and the return value is 1.
-            char* er = malloc(sizeof(char) * (strlen(path) + 48));
-            sprintf(er,"bash: cd: %s: Aucun fichier ou dossier de ce type",path);
-            perror(er);
-            free(er);
-            return 1;
-        }
         if(path[0] == '-'){ // case of "-", we return to the last directory where we were.
+            if(strlen(oldpwd) == 0){
+                errno = ECANCELED;
+                perror("bash: cd: « OLDPWD » undefined");
+                return 1;
+            }
             char * temp = malloc(sizeof(char) * MAX_ARGS_STRLEN);
             strcpy(temp,oldpwd);
             strcpy(oldpwd,pwd);
@@ -142,7 +142,15 @@ int process_cd(char * option, char * path){
             getcwd(pwdPhy,MAX_ARGS_STRLEN);
             free(temp);
         }
-        else {
+        else{
+            if(isPathValidPhy(path) != 0) { // if path isn't valid, an error message is displayed and the return value is 1.
+                char* er = malloc(sizeof(char) * (strlen(path) + 48));
+                sprintf(er,"bash: cd: %s",path);
+                errno = ENOENT;
+                perror(er);
+                free(er);
+                return 1;
+            }
             strcpy(oldpwd, pwd); // oldpwd takes the old value of pwd
 
             if (path[0] == '/') { // Absolute path : pwdPhy and pwd take the value of the path, transformed in physical path
@@ -163,6 +171,11 @@ int process_cd(char * option, char * path){
     }
     else{ // option -L or no option
         if(path[0] == '-'){ // case of "-", we return to the last directory where we were.
+            if(strlen(oldpwd) == 0){
+                errno = ECANCELED;
+                perror("slash: cd: « OLDPWD » undefined");
+                return 1;
+            }
             char * tmp = malloc(sizeof(char) * MAX_ARGS_STRLEN);
             strcpy(tmp,oldpwd);
             strcpy(oldpwd,pwd);
@@ -172,7 +185,8 @@ int process_cd(char * option, char * path){
             chdir(tmp); // pwdPhy takes the old value of oldpwd
             getcwd(pwdPhy,BUFSIZE); // which we transform into a physical value with chdir + getcwd
             free(tmp);
-        }else { // case of relative and absolute logical path
+        }
+        else { // case of relative and absolute logical path
             char * pathCopy = malloc(sizeof(char) * (strlen(path) + 1));
             testMalloc(pathCopy);
             strcpy(pathCopy,path); // We create a copy of path to work with
@@ -203,7 +217,7 @@ int process_cd(char * option, char * path){
                 if(token!=NULL){
                     taille_token=strlen(token);
                     if(taille_array==MAX_ARGS_STRLEN){
-                        perror("MAX ARGS LEN REACHED");
+                        perror("slash: cd: MAX ARGS LEN REACHED");
                         exit(EXIT_FAILURE);
                     }
 
@@ -223,7 +237,7 @@ int process_cd(char * option, char * path){
                 if (strcmp(partByPartNewPath[counter], "..") == 0) { // Each time we encounter "..".
                     strcpy(partByPartNewPath[counter], "-"); // We replace the content of the case with "-".
                     int reverseCounter = 1;
-                    while (strcmp(partByPartNewPath[counter - reverseCounter], "-") == 0 && counter - reverseCounter >= 0) {
+                    while (counter - reverseCounter >= 0 && strcmp(partByPartNewPath[counter - reverseCounter], "-") == 0) {
                         reverseCounter += 1;
                     }
                     if (counter - reverseCounter > 0) {
@@ -232,7 +246,8 @@ int process_cd(char * option, char * path){
                         // todo free avant de sortir de la fonction ?
                         return process_cd("-P", path);
                     }
-                } else if (strcmp(partByPartNewPath[counter], ".") == 0) {// Each time we encounter "."
+                }
+                else if (strcmp(partByPartNewPath[counter], ".") == 0) {// Each time we encounter "."
                     strcpy(partByPartNewPath[counter], "-"); // We replace the content of the case with "-".
                 }
                 counter += 1;
@@ -280,7 +295,8 @@ int process_cd(char * option, char * path){
  */
 void process_cd_call(cmds_struct liste){
     if(liste.taille_array>3){ // too many arguments
-        perror("Trop d'arguments pour la commande cd");
+        errno = EINVAL;
+        perror("slash: cd");
         errorCode=1;
     }
     else if(liste.taille_array == 1){ // no option and no path
@@ -307,10 +323,10 @@ void process_cd_call(cmds_struct liste){
  */
 void process_pwd_call(cmds_struct liste){
   if(liste.taille_array>2){
-      perror("Trop d'arguments pour la commande pwd");
+      errno = EINVAL;
+      perror("slash: pwd");
       errorCode=1;
   }
-  // appel de get_cwd avec *(liste.cmds_array+1)
   size_t size = liste.taille_array - 1;
   if(size > 0 && (strcmp(liste.cmds_array[1],"-P")==0)){
       char* pwd_physique = malloc(sizeof(char)*BUFSIZE);
@@ -329,7 +345,8 @@ void process_pwd_call(cmds_struct liste){
  */
 void process_exit_call(cmds_struct liste){
   if(liste.taille_array>2){
-      perror("Trop d'arguments pour la commande exit");
+      errno = EINVAL;
+      perror("slash: exit");
       errorCode=1;
   }
   if(liste.taille_array == 2){
@@ -375,8 +392,8 @@ cmds_struct lexer(char* ligne){
     token=strtok(ligne," ");
     do{
         taille_token=strlen(token);
-
-        if(taille_token>=MAX_ARGS_STRLEN){
+        //todo test taille token
+        if(taille_token>=MAX_ARGS_NUMBER){
             perror("MAX_ARGS_STRLEN REACHED");
             exit(1);
         }
@@ -431,7 +448,10 @@ void initVar(){
     pwd = malloc(MAX_ARGS_STRLEN * sizeof(char));
     strcpy(pwd, getenv("PWD"));
     oldpwd = malloc(MAX_ARGS_STRLEN * sizeof(char));
-    strcpy(oldpwd,pwd);
+    if(getenv("OLDPWD") != NULL){
+        strcpy(oldpwd,getenv("OLDPWD"));
+    }
+
 
     chdir(pwd);
     pwdPhy = malloc(MAX_ARGS_STRLEN * sizeof(char));
