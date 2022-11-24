@@ -1,7 +1,3 @@
-#define MAX_ARGS_NUMBER 4096
-#define MAX_ARGS_STRLEN 4096
-#define BUFSIZE 1024
-
 #include <stdio.h>
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -9,11 +5,8 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "slash.h"
 
-typedef struct cmds_struct{
-    char** cmds_array;
-    size_t taille_array;
-}cmds_struct;
 
 // Variables globales :
 int errorCode=0;
@@ -308,6 +301,47 @@ void process_cd_call(cmds_struct liste){
 }
 
 /***
+ * interprets the pwd arguments to call get_cwd with good parameters or print
+ * global variable pwd
+ * @param liste struct for the command
+ */
+void process_pwd_call(cmds_struct liste){
+  if(liste.taille_array>2){
+      perror("Trop d'arguments pour la commande pwd");
+      errorCode=1;
+  }
+  // appel de get_cwd avec *(liste.cmds_array+1)
+  size_t size = liste.taille_array - 1;
+  if(size > 0 && (strcmp(liste.cmds_array[1],"-P")==0)){
+      char* pwd_physique = malloc(sizeof(char)*BUFSIZE);
+      getcwd(pwd_physique,BUFSIZE);
+      printf("%s\n",pwd_physique);
+      free(pwd_physique);
+  }
+  else{
+      printf("%s\n", pwd);
+  }
+}
+
+/***
+ * interprets the exit arguments to call exit() with good value
+ * @param liste struct for the command
+ */
+void process_exit_call(cmds_struct liste){
+  if(liste.taille_array>2){
+      perror("Trop d'arguments pour la commande exit");
+      errorCode=1;
+  }
+  if(liste.taille_array == 2){
+      int exit_value = atoi(*(liste.cmds_array+1));
+      exit(exit_value);
+  }
+  else{
+      exit(errorCode);
+  }
+}
+
+/***
  * interprets the commands to call the corresponding functions.
  * @param liste struct for the command
  */
@@ -316,34 +350,10 @@ void interpreter(cmds_struct liste) {
         process_cd_call(liste);
     }
     else if(strcmp(*liste.cmds_array,"pwd")==0){
-        if(liste.taille_array>2){
-            perror("Trop d'arguments pour la commande pwd");
-            errorCode=1;
-        }
-        // appel de cwd avec *(liste.cmds_array+1)
-        size_t size = liste.taille_array - 1;
-        if(size > 0 && (strcmp(liste.cmds_array[1],"-P")==0)){
-            char* pwd_physique = malloc(sizeof(char)*BUFSIZE);
-            getcwd(pwd_physique,BUFSIZE);
-            printf("%s\n",pwd_physique);
-            free(pwd_physique);
-        }
-        else{
-            printf("%s\n", pwd);
-        }
+        process_pwd_call(liste);
     }
     else if(strcmp(*liste.cmds_array,"exit")==0){
-        if(liste.taille_array>2){
-            perror("Trop d'arguments pour la commande exit");
-            errorCode=1;
-        }
-        if(liste.taille_array == 2){
-            int exit_value = atoi(*(liste.cmds_array+1));
-            exit(exit_value);
-        }
-        else{
-            exit(errorCode);
-        }
+      process_exit_call(liste);
     }
 }
 
