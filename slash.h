@@ -2,6 +2,9 @@
 #define MAX_ARGS_STRLEN 4096
 #define BUFSIZE 1024
 
+/***
+ * A structure of commands with a list of String and the size of this list.
+ */
 typedef struct cmds_struct{
     char** cmds_array;
     size_t taille_array;
@@ -20,36 +23,35 @@ int process_cd(char * option, char * path);
 
 
 /***
- * interprets the cd arguments to call process_cd with good parameters
+ * Interprets the cd arguments to call process_cd with good parameters.
  * @param liste struct for the command
  */
 void process_cd_call(cmds_struct liste);
 
 
 /***
- * interprets the pwd arguments to call get_cwd with good parameters or print
- * global variable pwd
+ * Interprets the pwd arguments to call get_cwd with good parameters or print global variable pwd.
  * @param liste struct for the command
  */
 void process_pwd_call(cmds_struct liste);
 
 
 /***
- * interprets the exit arguments to call exit() with good value
+ * Interprets the exit arguments to call exit() with good value.
  * @param liste struct for the command
  */
 void process_exit_call(cmds_struct liste);
 
 
 /***
- * interprets the commands to call the corresponding functions.
+ * Interprets the commands to call the corresponding functions.
  * @param liste struct for the command
  */
 void interpreter(cmds_struct liste);
 
 
 /***
- * turns a line into a command structure
+ * Turns a line into a command structure.
  * @param ligne line from the prompt
  * @return struct cmds_struct
  */

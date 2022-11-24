@@ -20,7 +20,7 @@ char * home;
 
 
 /***
- * checks if a malloc has failed
+ * Checks if a malloc has failed.
  * @param ptr pointer to check
  */
 void testMalloc(void * ptr){
@@ -32,7 +32,7 @@ void testMalloc(void * ptr){
 }
 
 /***
- * free an instance of struct cmds_struct
+ * Free an instance of struct cmds_struct.
  * @param array cmds_struct
  */
 void freeCmdsArray(cmds_struct array) {
@@ -43,7 +43,7 @@ void freeCmdsArray(cmds_struct array) {
 }
 
 /***
- * double the size allocated to the variable if necessary
+ * Double the size allocated to the variable if necessary.
  * @param array string array
  * @param taille_array array size
  * @param taille_array_initiale initial array size
@@ -65,7 +65,7 @@ char** checkArraySize(char** array,size_t taille_array,size_t* taille_array_init
 /***
  * Checks that a path is valid physically.
  * @param path relative or absolute path
- * @return int val to represent boolean value. 0 = True, 1 = False.
+ * @return int val to represent boolean value. 0 = True, 1 = False
  */
 int isPathValidPhy(char * path){
     if(path[0] == '/'){
@@ -86,7 +86,7 @@ int isPathValidPhy(char * path){
 /***
  * Checks that a path is valid logically.
  * @param path absolute path
- * @return int val to represent boolean value. 0 = True, 1 = False.
+ * @return int val to represent boolean value. 0 = True, 1 = False
  */
 int isPathValidLo(char* path){
     struct stat st;
@@ -95,8 +95,8 @@ int isPathValidLo(char* path){
 }
 
 /***
- *
- * @param liste
+ * Temporary function used to debug.
+ * @param liste list of string
  */
 void printListe(cmds_struct liste) {
     int count=0;
@@ -222,6 +222,7 @@ int process_cd(char * option, char * path){
                     }
 
                     *(partByPartNewPath+taille_array)=malloc(sizeof(char)*(taille_token+1));
+                    testMalloc(*(partByPartNewPath+taille_array));
                     *(partByPartNewPath+taille_array)=memcpy(*(partByPartNewPath+taille_array),token,taille_token+1);
                     taille_array++;
                 }
@@ -290,7 +291,7 @@ int process_cd(char * option, char * path){
 }
 
 /***
- * interprets the cd arguments to call process_cd with good parameters
+ * Interprets the cd arguments to call process_cd with good parameters.
  * @param liste struct for the command
  */
 void process_cd_call(cmds_struct liste){
@@ -317,8 +318,7 @@ void process_cd_call(cmds_struct liste){
 }
 
 /***
- * interprets the pwd arguments to call get_cwd with good parameters or print
- * global variable pwd
+ * Interprets the pwd arguments to call get_cwd with good parameters or print global variable pwd.
  * @param liste struct for the command
  */
 void process_pwd_call(cmds_struct liste){
@@ -340,7 +340,7 @@ void process_pwd_call(cmds_struct liste){
 }
 
 /***
- * interprets the exit arguments to call exit() with good value
+ * Interprets the exit arguments to call exit() with good value
  * @param liste struct for the command
  */
 void process_exit_call(cmds_struct liste){
@@ -359,7 +359,7 @@ void process_exit_call(cmds_struct liste){
 }
 
 /***
- * interprets the commands to call the corresponding functions.
+ * Interprets the commands to call the corresponding functions.
  * @param liste struct for the command
  */
 void interpreter(cmds_struct liste) {
@@ -375,7 +375,7 @@ void interpreter(cmds_struct liste) {
 }
 
 /***
- * turns a line into a command structure
+ * Turns a line into a command structure.
  * @param ligne line from the prompt
  * @return struct cmds_struct
  */
@@ -389,6 +389,7 @@ cmds_struct lexer(char* ligne){
     size_t taille_array=0;
     *taille_array_init=1;
 
+    // take each string separated by a space and copy it into a list of String
     token=strtok(ligne," ");
     do{
         taille_token=strlen(token);
@@ -413,8 +414,8 @@ cmds_struct lexer(char* ligne){
 }
 
 /***
- *
- * @return
+ * Generate the prompt for the readline call.
+ * @return the prompt
  */
 char* promptGeneration(){
     char* curr_path_cpy=pwd;
@@ -424,8 +425,10 @@ char* promptGeneration(){
     char* new_curr=malloc(sizeof(char)*26);
     testMalloc(new_curr);
 
+    // copy only the 22 characters wanted to create a prompt of 30 characters
     if(curr_path_size>25){
-        size_t beginning_size=curr_path_size-22;
+        size_t wanted_size_path=22;
+        size_t beginning_size=curr_path_size-wanted_size_path;
         strcpy(tmp_curr,curr_path_cpy+beginning_size);
         sprintf(new_curr,"...%s",tmp_curr);
     }
@@ -460,7 +463,7 @@ void initVar(){
 }
 
 /***
- *
+ * Main loop of the program
  */
 void run(){
     rl_outstream=stderr;
@@ -471,6 +474,7 @@ void run(){
         char* tmp=promptGeneration();
         ligne=readline(tmp);
 
+        // checks if ligne is empty after readline return
         if(ligne && *ligne){
             add_history(ligne);
 
@@ -481,6 +485,7 @@ void run(){
         else if(rl_point==rl_end){
             exit(errorCode);
         }
+
         freeCmdsArray(liste);
         free(ligne);
         free(tmp);
@@ -488,7 +493,7 @@ void run(){
 }
 
 /***
- * call run() function
+ * Call run() function
  * @return exit value
  */
 int main(void) {
