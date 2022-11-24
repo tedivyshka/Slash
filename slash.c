@@ -476,17 +476,21 @@ void run(){
 
         // checks if ligne is empty after readline return
         if(ligne && *ligne){
-            add_history(ligne);
+            if(strcmp(ligne,"\n")!=0){
+                add_history(ligne);
 
-            liste=lexer(ligne);
+                liste=lexer(ligne);
 
-            interpreter(liste);
+                interpreter(liste);
+            }
+
+            freeCmdsArray(liste);
         }
-        else if(rl_point==rl_end){
+        // exit when reached EOF
+        else if(ligne==NULL){
             exit(errorCode);
         }
 
-        freeCmdsArray(liste);
         free(ligne);
         free(tmp);
     }
@@ -498,4 +502,5 @@ void run(){
  */
 int main(void) {
     run();
+    exit(errorCode);
 }
