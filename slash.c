@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include "slash.h"
 #include <errno.h>
@@ -359,6 +360,39 @@ void process_exit_call(cmds_struct liste){
 }
 
 /***
+ * Runs external command
+ * @param liste struct for the command
+ */
+void process_external_command(cmds_struct liste){
+  char** args = malloc(sizeof(char*) * (liste.taille_array + 1));
+
+  //Fill args array
+  for(int i = 0; i < liste.taille_array; i++){
+    args[i] = malloc(sizeof(char) * strlen(*(liste.cmds_array + i)) + 1);
+    strcpy(args[i], *(liste.cmds_array + i));
+  }
+  args[liste.taille_array] = NULL;
+
+  int status, r = fork();
+  if(r == 0){
+    execvp(args[0],args);
+    exit(1);
+  }
+  else{
+    wait(&status);
+     if(WIFEXITED(status)){
+       errorCode = WEXITSTATUS(status);
+     }
+     else errorCode=0;
+
+     for(int i = 0; i < liste.taille_array+1; i++){
+       free(args[i]);
+     }
+     free(args);
+  }
+}
+
+/***
  * Interprets the commands to call the corresponding functions.
  * @param liste struct for the command
  */
@@ -371,6 +405,9 @@ void interpreter(cmds_struct liste) {
     }
     else if(strcmp(*liste.cmds_array,"exit")==0){
       process_exit_call(liste);
+    }
+    else{
+      process_external_command(liste);
     }
 }
 
