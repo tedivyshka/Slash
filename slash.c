@@ -380,10 +380,7 @@ void process_external_command(cmds_struct liste){
   }
   else{
     wait(&status);
-     if(WIFEXITED(status)){
-       errorCode = WEXITSTATUS(status);
-     }
-     else errorCode=0;
+    errorCode = WEXITSTATUS(status);
 
      for(int i = 0; i < liste.taille_array+1; i++){
        free(args[i]);
