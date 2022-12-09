@@ -460,13 +460,13 @@ void jokerSoloAsterisk(cmds_struct liste){
     // si * en premier, alors opendir(".")
     if (liste.cmds_array[index][0] == '*') {
         //printf("cas sans rien avant *\n");
-        copyPath = malloc(sizeof(char) * 1); //todo free
+        copyPath = malloc(sizeof(char) * 1);
         testMalloc(copyPath);
         strcpy(copyPath, "\0");
         dir = opendir(".");
     } else { // sinon on récupère le chemin sans * et ce qui suit
         size_t copyLength = strlen(liste.cmds_array[index]) - strlen(substringAsterisk) + 1;
-        copyPath = malloc(sizeof(char) * copyLength); //todo free
+        copyPath = malloc(sizeof(char) * copyLength);
         testMalloc(copyPath);
         memcpy(copyPath, liste.cmds_array[index], sizeof(char) * (copyLength - 1));
         copyPath[copyLength - 1] = '\0';
@@ -481,7 +481,7 @@ void jokerSoloAsterisk(cmds_struct liste){
     // On crée une cmds_struct avec un tableau de char * de taille - 1 de la cmds_struct initiale
     // On le realloc a chaque fois qu'on rencontre un fichier/ repertoire pouvant remplacer *
     cmds_struct newList;
-    newList.cmds_array = malloc(sizeof(char *) * liste.taille_array - 1);
+    newList.cmds_array = malloc(sizeof(char *) * (liste.taille_array - 1));
     newList.taille_array = liste.taille_array - 1;
     for (int i = 0; i < index; i++) {
         newList.cmds_array[i] = malloc(sizeof(char) * strlen(liste.cmds_array[i]));
@@ -511,7 +511,7 @@ void jokerSoloAsterisk(cmds_struct liste){
                 sprintf(newList.cmds_array[countEntry + index], "%s%s", copyPath, entry->d_name);
             } else { // sinon on ajoute le chemin, puis l'entrée (qui est un répertoire) puis la suite du chemin
                 newList.cmds_array[countEntry + index] = malloc(
-                        sizeof(char) * (strlen(copyPath) + strlen(entry->d_name) + strlen(endSubstring)));
+                        sizeof(char) * (strlen(copyPath) + strlen(entry->d_name) + strlen(endSubstring) + 1));
                 sprintf(newList.cmds_array[countEntry + index], "%s%s%s", copyPath, entry->d_name, endSubstring);
             }
             // on incrémente le nombre d'entrées acceptées
@@ -530,7 +530,7 @@ void jokerSoloAsterisk(cmds_struct liste){
     if (liste.taille_array > index) {
         for (int i = 1; i < liste.taille_array - index; i++) {
             newList.cmds_array[index + countEntry - 1 + i] = malloc(
-                    sizeof(char) * strlen(liste.cmds_array[index + i]));
+                    sizeof(char) * strlen(liste.cmds_array[index + i]) + 1);
             strcpy(newList.cmds_array[index + countEntry - 1 + i], liste.cmds_array[index + i]);
 
         }
