@@ -408,142 +408,177 @@ void interpreter(cmds_struct liste) {
     }
 }
 
+// Function to combine two char** variables into a single char**
+char** combine_char_array(char** arr1, char** arr2) {
+    // First, count the number of elements in each array
+    int len1 = 0;
+    for(int i = 0; arr1[i] != NULL; i++) len1++;
 
-void jokerSoloAsterisk(cmds_struct liste){
-    //on récupère la chaine qui commence avec * et la sous chaine de cette dernier qui commence par / (s'il y en a une)
-    char * substringAsterisk;
-    char * endSubstring;
-    int index = 0;
-    while(index < liste.taille_array){
-        substringAsterisk = strstr(liste.cmds_array[index], "*");
-        if(substringAsterisk != NULL) break;
-        index += 1;
+    int len2 = 0;
+    for(int i = 0; arr2[i] != NULL; i++) len2++;
+
+    // Allocate a new char** array with the combined length of the two input arrays
+    char** combined = malloc(sizeof(char*) * (len1 + len2 + 1));
+
+    // Copy the elements from each input array into the combined array
+    int i;
+    for(i = 0; i < len1; i++) {
+        combined[i] = arr1[i];
     }
 
-    // cas ou il n'y a pas de asterisk *
-    if(substringAsterisk == NULL){
-        interpreter(liste);
-        return;
+    for(int j = 0; j < len2; j++) {
+        combined[i++] = arr2[j];
     }
 
-    // on récupere la fin du substring, apres le premier /
-    // a ce moment, soit substringAsterisk est suffixe, alors endSubstring vaut NULL, soit endSubstring correspond a la chaine apres le premier /
-    endSubstring = strstr(substringAsterisk,"/");
+    // Add a NULL terminator at the end of the combined array
+    combined[i] = NULL;
 
+    return combined;
+}
 
-    // cas ou le joker n'est pas préfixe
-    if(liste.cmds_array[index][0] != '*' && *(substringAsterisk - 1) != '/'){
-        errno = EINVAL;
-        perror("slash: * treatment:");
-        return;
+// fonction qui renvoie la position de la premiere asterisk dans le string, ou alors -1 s'il n'y en a pas
+int getAsteriskPos(char * asteriskString){
+    for(int index = 0; index < strlen(asteriskString); index++){
+        if(asteriskString[index] == '*') return index;
     }
-    // on calcule la longueur de substringAsterisk sans la partie apres le premier / (si elle existe)
-    size_t subAstNoEndLength;
-    if(endSubstring != NULL) {
-         subAstNoEndLength = strlen(substringAsterisk) - strlen(endSubstring);
-    }else{
-        subAstNoEndLength = strlen(substringAsterisk);
+    return -1;
+}
+char * getPrefixe(int posAsterisk, char * asteriskString){
+    char * prefixe = malloc(sizeof(char) * (posAsterisk + 1));
+    testMalloc(prefixe);
+    if(posAsterisk > 0){
+        memcpy(prefixe,asteriskString,posAsterisk);
+    }
+    prefixe[posAsterisk] = '\0';
+    return prefixe;
+}
+
+char * getAstefixe(int posAsterisk, char * asteriskString){
+    char * asterisk = malloc(sizeof(char) * MAX_ARGS_STRLEN);
+    testMalloc(asterisk);
+    int endAst = posAsterisk + 1;
+    size_t tailleAst = 0;
+    while(asteriskString[endAst] != '\0' && asteriskString[endAst] != '/' ){
+        asterisk[tailleAst] = asteriskString[endAst];
+        tailleAst++;
+        endAst++;
     }
 
-    // on récupère la chaine substringAsterisk, sans la partie apres le / (si elle existe) et sans *
-    char *subAsteriskNoEnd = malloc(sizeof(char) * subAstNoEndLength + 1);
-    testMalloc(subAsteriskNoEnd);
-    for (int i = 1; i < subAstNoEndLength; i++) {
-        subAsteriskNoEnd[i - 1] = substringAsterisk[i];
-    }
-    subAsteriskNoEnd[subAstNoEndLength - 1] = '\0';
+    asterisk = realloc(asterisk, sizeof(char) * (tailleAst + 1));
+    testMalloc(asterisk);
+    asterisk[tailleAst] = '\0';
 
-    //on s'apprête à ouvrir le répertoire contenant ce qu'on va comparer au substring
-    char *copyPath;
+    return asterisk;
+}
+
+char * getSuffixe(int pos, char * asteriskString){
+    char * suffixe = malloc(sizeof(char) * (strlen(asteriskString) - pos + 1));
+    for(int i = pos; i < strlen(asteriskString); i++){
+        suffixe[i - pos] = asteriskString[i];
+    }
+    suffixe[strlen(asteriskString) - pos] = '\0';
+    return suffixe;
+}
+
+char ** replaceAsterisk(char * asteriskString){
+
+    char ** res = malloc(sizeof(char * ) * 1);
+    res[0] = NULL;
+    int posAsterisk = getAsteriskPos(asteriskString);
+
+    // cas ou l'asterisk n'est pas préfixe ou qu'il n'y en a pas
+    if(posAsterisk == -1 || (posAsterisk != 0 && asteriskString[posAsterisk - 1] != '/')) goto error;
+    //printf("test2\n");
+
+    /*on cherche à récupérer 3 char * correspondants à
+     * la partie avant *
+     * la partie ou il y a * (mais sans l'*)
+     * la partie apres *
+     */
+    char * prefixe = getPrefixe(posAsterisk, asteriskString);
+    char * asterisk = getAstefixe(posAsterisk, asteriskString);
+    unsigned  long tailleSuf = strlen(prefixe) + 1 + strlen(asterisk);
+    char * suffixe = getSuffixe(tailleSuf, asteriskString);
+
+    //desormais on va ouvrir le repertoire préfixe
     DIR *dir = NULL;
     struct dirent *entry;
-    // si * en premier, alors opendir(".")
-    if (liste.cmds_array[index][0] == '*') {
-        //printf("cas sans rien avant *\n");
-        copyPath = malloc(sizeof(char) * 1);
-        testMalloc(copyPath);
-        strcpy(copyPath, "\0");
+
+    if(strlen(prefixe) == 0){
         dir = opendir(".");
-    } else { // sinon on récupère le chemin sans * et ce qui suit
-        size_t copyLength = strlen(liste.cmds_array[index]) - strlen(substringAsterisk) + 1;
-        copyPath = malloc(sizeof(char) * copyLength);
-        testMalloc(copyPath);
-        memcpy(copyPath, liste.cmds_array[index], sizeof(char) * (copyLength - 1));
-        copyPath[copyLength - 1] = '\0';
-
-        dir = opendir(copyPath);
+    }else{
+        dir = opendir(prefixe);
     }
 
-    if (dir == NULL) {
-        exit(-1);
-    }
+    // On vérifie que le repertoire a bien été ouvert.
+    // S'il n'est pas ouvert, c'est que le chemin n'est pas valide, donc on l'envoie à la fonction sans le modifier.
+    // C'est cette dernière qui s'occupera de l'erreur
+    if (dir == NULL) goto error;
 
-    // On crée une cmds_struct avec un tableau de char * de taille - 1 de la cmds_struct initiale
-    // On le realloc a chaque fois qu'on rencontre un fichier/ repertoire pouvant remplacer *
-    cmds_struct newList;
-    newList.cmds_array = malloc(sizeof(char *) * (liste.taille_array - 1));
-    newList.taille_array = liste.taille_array - 1;
-    for (int i = 0; i < index; i++) {
-        newList.cmds_array[i] = malloc(sizeof(char) * strlen(liste.cmds_array[i]));
-        strcpy(newList.cmds_array[i], liste.cmds_array[i]);
-    }
-
-    // on compare les entrées du repertoire avec la chaine, pour voir ce qui peut remplacer *
+    // on parcourt les entrées du répertoire
     int countEntry = 0;
     while ((entry = readdir(dir)) != NULL) {
+        // cas où le fichier est '.', '..' ou caché
         if (entry->d_name[0] == '.') continue;
         // cas ou il y a une suite à la sous chaine avec asterisk (*/test par exemple)
-        if(endSubstring != NULL){
+        if (strlen(suffixe) != 0) {
             // dans ce cas, si le fichier n'est PAS un répertoire, on passe au suivant
-            if(entry->d_type != DT_DIR) continue;
+            if (entry->d_type != DT_DIR) continue;
         }
 
 
         // à chaque correspondance entre le substring et entry, on realloc le tableau
-        if (strstr(entry->d_name, subAsteriskNoEnd) != NULL) {
+        if (strstr(entry->d_name, asterisk) != NULL) {
+            //printf("entrée = %s   ---   asterisk = %s\n", entry->d_name, asterisk);
+            char * newString = malloc(sizeof(char) * (strlen(prefixe) + strlen(entry->d_name) + strlen(suffixe)));
+            sprintf(newString,"%s%s%s",prefixe,entry->d_name,suffixe);
+            res = combine_char_array(res, replaceAsterisk(newString));
 
-            newList.taille_array += 1;
-            newList.cmds_array = realloc(newList.cmds_array, sizeof(char *) * newList.taille_array);
-            // si il n'y a pas de / apres *, alors on ajoute le chemin jusqu'au repertoire + l'entrée dans le tableau
-            if (endSubstring == NULL) {
-                newList.cmds_array[countEntry + index] = malloc(
-                        sizeof(char) * (strlen(copyPath) + strlen(entry->d_name)));
-                sprintf(newList.cmds_array[countEntry + index], "%s%s", copyPath, entry->d_name);
-            } else { // sinon on ajoute le chemin, puis l'entrée (qui est un répertoire) puis la suite du chemin
-                newList.cmds_array[countEntry + index] = malloc(
-                        sizeof(char) * (strlen(copyPath) + strlen(entry->d_name) + strlen(endSubstring) + 1));
-                sprintf(newList.cmds_array[countEntry + index], "%s%s%s", copyPath, entry->d_name, endSubstring);
-            }
             // on incrémente le nombre d'entrées acceptées
             countEntry += 1;
+            //free(newString);
         }
+
     }
 
-    // cas ou * ne correspond a rien
-    // todo probleme avec ls *ghbfhjq *t par exemple
-    if (countEntry == 0) {
-        interpreter(liste);
-        return;
+    // Cas ou aucune entrée ne correspondait
+    if(countEntry == 0) goto error;
+
+   /* free(prefixe);
+    free(suffixe);
+    free(asterisk);
+    */
+    return res;
+
+    error:
+    /*free(prefixe);
+    free(suffixe);
+    free(asterisk);
+     */
+    res = realloc(res,sizeof(char *) * 2);
+    res[0] = malloc(sizeof(char) * strlen(asteriskString));
+    strcpy(res[0],asteriskString);
+    res[1] = NULL;
+    return res;
+
+}
+
+void joker_solo_asterisk(cmds_struct liste){
+    //on commence par ajouter la commande dans le tableau args
+    char ** args = malloc(sizeof(char *) * 1);
+    args[0] = liste.cmds_array[0];
+    // on combine args avec le nouveau char ** représentant les chaines obtenues en remplaçant * dans un argument de la liste.
+    for(int i = 1; i < liste.taille_array; i++){
+        args = combine_char_array(args, replaceAsterisk(liste.cmds_array[i]));
     }
+    size_t tailleArray = 0;
+    while(args[tailleArray] != NULL) tailleArray ++;
+    cmds_struct new_liste;
+    new_liste.taille_array = tailleArray;
+    new_liste.cmds_array = args;
+    interpreter(new_liste);
 
-    // on rajoute les derniers arguments, apres ceux rajoutés (via remplacement de *), s'il y en a.
-    if (liste.taille_array > index) {
-        for (int i = 1; i < liste.taille_array - index; i++) {
-            newList.cmds_array[index + countEntry - 1 + i] = malloc(
-                    sizeof(char) * strlen(liste.cmds_array[index + i]) + 1);
-            strcpy(newList.cmds_array[index + countEntry - 1 + i], liste.cmds_array[index + i]);
-
-        }
-    }
-
-    // on fait un appel récursif dans le cas ou il y a un autre/ plusieurs arguments de la fonction contenant *
-    jokerSoloAsterisk(newList);
-
-    freeCmdsArray(newList);
-    free(copyPath);
-    if(subAsteriskNoEnd != NULL) {
-        free(subAsteriskNoEnd);
-    }
+    //freeCmdsArray(new_liste);
 }
 
 
@@ -654,10 +689,11 @@ void run(){
 
                 liste=lexer(ligne);
 
-                jokerSoloAsterisk(liste);
+                joker_solo_asterisk(liste);
+                //jokerSoloAsterisk(liste);
             }
-
             freeCmdsArray(liste);
+
         }
         // exit when reached EOF
         else if(ligne==NULL){
