@@ -556,7 +556,7 @@ char ** replaceAsterisk(char * asteriskString){
     free(asterisk);
      */
     res = realloc(res,sizeof(char *) * 2);
-    res[0] = malloc(sizeof(char) * strlen(asteriskString));
+    res[0] = malloc(sizeof(char) * strlen(asteriskString) + 1);
     strcpy(res[0],asteriskString);
     res[1] = NULL;
     return res;
