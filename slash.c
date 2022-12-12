@@ -645,11 +645,17 @@ char* promptGeneration(){
     }
     char* res=malloc(sizeof(char)*(55+strlen(new_curr)));
 
-    sprintf(res,"\001\033[32m\002[%d]\001\033[36m\002%s\001\033[00m\002$ ",errorCode,new_curr);
+    if(errorCode==0){
+        sprintf(res,"\001\033[32m\002[%d]\001\033[00m\002\001\033[34m\002%s\001\033[00m\002$ ",errorCode,new_curr);
+    }
+    else{
+        sprintf(res,"\001\033[91m\002[%d]\001\033[00m\002\001\033[34m\002%s\001\033[00m\002$ ",errorCode,new_curr);
+    }
     free(new_curr);
     free(tmp_curr);
     return res;
 }
+
 /***
  * Variables initialization
  */
