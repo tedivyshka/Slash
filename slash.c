@@ -422,17 +422,30 @@ char** combine_char_array(char** arr1, char** arr2) {
 
     // Copy the elements from each input array into the combined array
     int i;
-    for(i = 0; i < len1; i++) {
-        combined[i] = arr1[i];
+    if(len1 != 0) {
+        for (i = 0; i < len1; i++) {
+            combined[i] = malloc(sizeof(char) * (strlen(arr1[i]) + 1));
+            strcpy(combined[i], arr1[i]);
+            free(arr1[i]);
+        }
+        for (int j = 0; j < len2; j++) {
+            combined[i] = malloc(sizeof(char) * (strlen(arr2[j]) + 1));
+            strcpy(combined[i], arr2[j]);
+            free(arr2[j]);
+            i++;
+        }
+    }else{
+        for (i = 0; i < len2; i++) {
+            combined[i] = malloc(sizeof(char) * (strlen(arr2[i]) + 1));
+            strcpy(combined[i], arr2[i]);
+            free(arr2[i]);
+        }
     }
 
-    for(int j = 0; j < len2; j++) {
-        combined[i++] = arr2[j];
-    }
-
+    free(arr1);
+    free(arr2);
     // Add a NULL terminator at the end of the combined array
     combined[i] = NULL;
-
     return combined;
 }
 
@@ -443,51 +456,45 @@ int getAsteriskPos(char * asteriskString){
     }
     return -1;
 }
-char * getPrefixe(int posAsterisk, char * asteriskString){
-    char * prefixe = malloc(sizeof(char) * (posAsterisk + 1));
+char * getPrefixe(unsigned long pos, char * asteriskString){
+    char * prefixe = malloc(sizeof(char) * (pos + 1));
     testMalloc(prefixe);
-    if(posAsterisk > 0){
-        memcpy(prefixe,asteriskString,posAsterisk);
+    if(pos > 0){
+        memcpy(prefixe,asteriskString,pos);
     }
-    prefixe[posAsterisk] = '\0';
+    prefixe[pos] = '\0';
     return prefixe;
 }
 
-char * getAstefixe(int posAsterisk, char * asteriskString){
-    char * asterisk = malloc(sizeof(char) * MAX_ARGS_STRLEN);
-    testMalloc(asterisk);
-    int endAst = posAsterisk + 1;
-    size_t tailleAst = 0;
-    while(asteriskString[endAst] != '\0' && asteriskString[endAst] != '/' ){
-        asterisk[tailleAst] = asteriskString[endAst];
-        tailleAst++;
-        endAst++;
-    }
+char * getSuffixe(unsigned long pos, char * asteriskString){
+    size_t len = strlen(asteriskString);
+    size_t sub_len = len - pos;
+    char *sub = malloc(sub_len + 1);
+    testMalloc(sub);
+    strncpy(sub, asteriskString + pos, sub_len);
+    sub[sub_len] = '\0';
+    return sub;
+}
 
-    asterisk = realloc(asterisk, sizeof(char) * (tailleAst + 1));
-    testMalloc(asterisk);
-    asterisk[tailleAst] = '\0';
 
+char * getAstefixe(int start, const char * asteriskString){
+    int end = start;
+    while(asteriskString[end] != '\0' && asteriskString[end] != '/' ) end++;
+    char * asterisk = malloc(sizeof(char) * (end - start + 1));
+    testMalloc(asterisk);
+    memcpy(asterisk,asteriskString + start,end - start);
+    asterisk[end - start] = '\0';
     return asterisk;
 }
 
-char * getSuffixe(int pos, char * asteriskString){
-    char * suffixe = malloc(sizeof(char) * (strlen(asteriskString) - pos + 1));
-    for(int i = pos; i < strlen(asteriskString); i++){
-        suffixe[i - pos] = asteriskString[i];
-    }
-    suffixe[strlen(asteriskString) - pos] = '\0';
-    return suffixe;
-}
-
-char ** replaceAsterisk(char * asteriskString){
-
-    char ** res = malloc(sizeof(char * ) * 1);
+char ** replaceAsterisk(char * asteriskString) {
+    int doesPreSuAstHaveBeenCreated = 0;
+    char **res = malloc(sizeof(char *) * 1);
     res[0] = NULL;
     int posAsterisk = getAsteriskPos(asteriskString);
 
     // cas ou l'asterisk n'est pas préfixe ou qu'il n'y en a pas
-    if(posAsterisk == -1 || (posAsterisk != 0 && asteriskString[posAsterisk - 1] != '/')) goto error;
+    if (posAsterisk == -1 || (posAsterisk != 0 && asteriskString[posAsterisk - 1] != '/')) goto error;
     //printf("test2\n");
 
     /*on cherche à récupérer 3 char * correspondants à
@@ -495,18 +502,21 @@ char ** replaceAsterisk(char * asteriskString){
      * la partie ou il y a * (mais sans l'*)
      * la partie apres *
      */
-    char * prefixe = getPrefixe(posAsterisk, asteriskString);
-    char * asterisk = getAstefixe(posAsterisk, asteriskString);
-    unsigned  long tailleSuf = strlen(prefixe) + 1 + strlen(asterisk);
-    char * suffixe = getSuffixe(tailleSuf, asteriskString);
+    char *prefixe = getPrefixe(posAsterisk, asteriskString);
+    char *asterisk = getAstefixe(posAsterisk + 1, asteriskString);
+    unsigned long tailleSuf = strlen(prefixe) + strlen(asterisk) + 1;
+    char *suffixe = getSuffixe(tailleSuf, asteriskString);
+
+    // to free them in error statement
+    doesPreSuAstHaveBeenCreated = 1;
 
     //desormais on va ouvrir le repertoire préfixe
     DIR *dir = NULL;
     struct dirent *entry;
 
-    if(strlen(prefixe) == 0){
+    if (strlen(prefixe) == 0) {
         dir = opendir(".");
-    }else{
+    } else {
         dir = opendir(prefixe);
     }
 
@@ -530,47 +540,62 @@ char ** replaceAsterisk(char * asteriskString){
         // à chaque correspondance entre le substring et entry, on realloc le tableau
         if (strstr(entry->d_name, asterisk) != NULL) {
             //printf("entrée = %s   ---   asterisk = %s\n", entry->d_name, asterisk);
-            char * newString = malloc(sizeof(char) * (strlen(prefixe) + strlen(entry->d_name) + strlen(suffixe)));
-            sprintf(newString,"%s%s%s",prefixe,entry->d_name,suffixe);
+            char *newString = malloc(sizeof(char) * (strlen(prefixe) + strlen(entry->d_name) + strlen(suffixe) + 1));
+            sprintf(newString, "%s%s%s", prefixe, entry->d_name, suffixe);
             res = combine_char_array(res, replaceAsterisk(newString));
 
             // on incrémente le nombre d'entrées acceptées
             countEntry += 1;
-            //free(newString);
+            free(newString);
         }
-
     }
+    closedir(dir);
 
     // Cas ou aucune entrée ne correspondait
-    if(countEntry == 0) goto error;
+    if (countEntry == 0) goto error; //modifier un boolean pour dire que suffixe, prefixe etc deja malloc
 
-   /* free(prefixe);
+    free(prefixe);
     free(suffixe);
     free(asterisk);
-    */
+
     return res;
 
     error:
-    /*free(prefixe);
-    free(suffixe);
-    free(asterisk);
-     */
-    res = realloc(res,sizeof(char *) * 2);
+    if (doesPreSuAstHaveBeenCreated == 1) {
+        free(prefixe);
+        free(suffixe);
+        free(asterisk);
+    }
+
+    res = realloc(res, sizeof(char *) * 2);
     res[0] = malloc(sizeof(char) * strlen(asteriskString) + 1);
-    strcpy(res[0],asteriskString);
+    strcpy(res[0], asteriskString);
     res[1] = NULL;
     return res;
 
 }
+void print_char_double_ptr(char **str) {
+    int i = 0;
+    while (str[i] != NULL) {
+        printf("%s\n", str[i]);
+        i++;
+    }
+}
 
 void joker_solo_asterisk(cmds_struct liste){
     //on commence par ajouter la commande dans le tableau args
-    char ** args = malloc(sizeof(char *) * 1);
-    args[0] = liste.cmds_array[0];
+    char ** args = malloc(sizeof(char *) * 2);
+    args[0] = malloc(sizeof(char) * (strlen(liste.cmds_array[0]) + 1));
+    strcpy(args[0],liste.cmds_array[0]);
+    free(liste.cmds_array[0]);
+    args[1] = NULL;
     // on combine args avec le nouveau char ** représentant les chaines obtenues en remplaçant * dans un argument de la liste.
     for(int i = 1; i < liste.taille_array; i++){
+        // la fonction combine_char_array free ses deux arguments et renvoie un nouveau pointeur char ** (malloc a l'interieur)
+        // la fonction replaceAsterisk free son argument et renvoie un char ** (malloc a l'interieur)
         args = combine_char_array(args, replaceAsterisk(liste.cmds_array[i]));
     }
+    free(liste.cmds_array);
     size_t tailleArray = 0;
     while(args[tailleArray] != NULL) tailleArray ++;
     cmds_struct new_liste;
@@ -578,7 +603,7 @@ void joker_solo_asterisk(cmds_struct liste){
     new_liste.cmds_array = args;
     interpreter(new_liste);
 
-    //freeCmdsArray(new_liste);
+    freeCmdsArray(new_liste);
 }
 
 
@@ -698,7 +723,7 @@ void run(){
                 joker_solo_asterisk(liste);
                 //jokerSoloAsterisk(liste);
             }
-            freeCmdsArray(liste);
+            //freeCmdsArray(liste);
 
         }
         // exit when reached EOF
