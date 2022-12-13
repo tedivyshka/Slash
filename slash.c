@@ -323,11 +323,6 @@ void process_cd_call(cmds_struct liste){
  * @param liste struct for the command
  */
 void process_pwd_call(cmds_struct liste){
-  if(liste.taille_array>2){
-      errno = EINVAL;
-      perror("slash: pwd");
-      errorCode=1;
-  }
   size_t size = liste.taille_array - 1;
   if(size > 0 && (strcmp(liste.cmds_array[1],"-P")==0)){
       char* pwd_physique = malloc(sizeof(char)*BUFSIZE);
