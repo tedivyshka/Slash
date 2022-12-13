@@ -424,13 +424,15 @@ char** combine_char_array(char** arr1, char** arr2) {
             strcpy(combined[i], arr1[i]);
             free(arr1[i]);
         }
-        for (int j = 0; j < len2; j++) {
-            combined[i] = malloc(sizeof(char) * (strlen(arr2[j]) + 1));
-            strcpy(combined[i], arr2[j]);
-            free(arr2[j]);
-            i++;
+        if(len2 != 0) {
+            for (int j = 0; j < len2; j++) {
+                combined[i] = malloc(sizeof(char) * (strlen(arr2[j]) + 1));
+                strcpy(combined[i], arr2[j]);
+                free(arr2[j]);
+                i++;
+            }
         }
-    }else{
+    }else if(len2 != 0){
         for (i = 0; i < len2; i++) {
             combined[i] = malloc(sizeof(char) * (strlen(arr2[i]) + 1));
             strcpy(combined[i], arr2[i]);
@@ -483,6 +485,17 @@ char * getAstefixe(int start, const char * asteriskString){
     return asterisk;
 }
 
+// vérifie que asterisk_string est suffixe de entry_name
+int strstrSuffixe(char * entry_name, char * asterisk_string){
+    if(strlen(entry_name) < strlen(asterisk_string)) return 0;
+    int index = strlen(entry_name) - 1;
+    for(int i = strlen(asterisk_string) - 1; i >= 0; i--){
+        if(entry_name[index] != asterisk_string[i]) return 0;
+        index--;
+    }
+    return 1;
+}
+
 char ** replaceAsterisk(char * asteriskString) {
     int doesPreSuAstHaveBeenCreated = 0;
     char **res = malloc(sizeof(char *) * 1);
@@ -491,7 +504,6 @@ char ** replaceAsterisk(char * asteriskString) {
 
     // cas ou l'asterisk n'est pas préfixe ou qu'il n'y en a pas
     if (posAsterisk == -1 || (posAsterisk != 0 && asteriskString[posAsterisk - 1] != '/')) goto error;
-    //printf("test2\n");
 
     /*on cherche à récupérer 3 char * correspondants à
      * la partie avant *
@@ -502,6 +514,7 @@ char ** replaceAsterisk(char * asteriskString) {
     char *asterisk = getAstefixe(posAsterisk + 1, asteriskString);
     unsigned long tailleSuf = strlen(prefixe) + strlen(asterisk) + 1;
     char *suffixe = getSuffixe(tailleSuf, asteriskString);
+
 
     // to free them in error statement
     doesPreSuAstHaveBeenCreated = 1;
@@ -534,7 +547,8 @@ char ** replaceAsterisk(char * asteriskString) {
 
 
         // à chaque correspondance entre le substring et entry, on realloc le tableau
-        if (strstr(entry->d_name, asterisk) != NULL) {
+        //
+        if (strstrSuffixe(entry->d_name, asterisk) == 1) { //todo faire une fonction qui vérifie que asterisk est en fin de entry->d_name
             //printf("entrée = %s   ---   asterisk = %s\n", entry->d_name, asterisk);
             char *newString = malloc(sizeof(char) * (strlen(prefixe) + strlen(entry->d_name) + strlen(suffixe) + 1));
             sprintf(newString, "%s%s%s", prefixe, entry->d_name, suffixe);
@@ -547,12 +561,16 @@ char ** replaceAsterisk(char * asteriskString) {
     }
     closedir(dir);
 
-    // Cas ou aucune entrée ne correspondait
-    if (countEntry == 0) goto error; //modifier un boolean pour dire que suffixe, prefixe etc deja malloc
-
     free(prefixe);
     free(suffixe);
     free(asterisk);
+
+    // Cas ou aucune entrée ne correspondait
+    if (countEntry == 0){
+        return res;
+    }
+
+
 
     return res;
 
@@ -589,6 +607,7 @@ void joker_solo_asterisk(cmds_struct liste){
     for(int i = 1; i < liste.taille_array; i++){
         // la fonction combine_char_array free ses deux arguments et renvoie un nouveau pointeur char ** (malloc a l'interieur)
         // la fonction replaceAsterisk free son argument et renvoie un char ** (malloc a l'interieur)
+        //todo if replaceAsterisk n'a aucun string, alors donner liste.cmds_array[i]
         args = combine_char_array(args, replaceAsterisk(liste.cmds_array[i]));
     }
     free(liste.cmds_array);
@@ -598,7 +617,6 @@ void joker_solo_asterisk(cmds_struct liste){
     new_liste.taille_array = tailleArray;
     new_liste.cmds_array = args;
     interpreter(new_liste);
-
     freeCmdsArray(new_liste);
 }
 
