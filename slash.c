@@ -44,6 +44,39 @@ void freeCmdsArray(cmds_struct array) {
     free(array.cmds_array);
 }
 
+cmds_struct copyCmdsStruct(cmds_struct liste){
+    cmds_struct cmds_cpy;
+    cmds_cpy.taille_array= liste.taille_array;
+    cmds_cpy.cmds_array= malloc(sizeof(char *) * liste.taille_array);
+    memcpy(cmds_cpy.cmds_array,liste.cmds_array,sizeof(char *)*liste.taille_array);
+    for (int i = 0; i < liste.taille_array; i++){
+        *(cmds_cpy.cmds_array+i)= malloc(sizeof(char)* strlen(*(liste.cmds_array+i)));
+        strcpy(*(cmds_cpy.cmds_array+i),*(liste.cmds_array+i));
+    }
+    return cmds_cpy;
+}
+
+char** copyStringArray(char** liste){
+    char** liste_cpy;
+    size_t taille=0;
+    while(*(liste+taille) != NULL) taille++;
+    liste_cpy = malloc(sizeof(char *) * (taille+1));
+    memcpy(liste_cpy,liste,sizeof(char *)*taille);
+    for (int i = 0; i < taille; i++) {
+        *(liste_cpy+i)= malloc(sizeof(char)* (strlen(*(liste+i))+1));
+        strcpy(*(liste_cpy+i),*(liste+i));
+    }
+    *(liste_cpy+taille)=NULL;
+    return liste_cpy;
+}
+
+void freeArray(char** array) {
+    for (int i = 0; *(array+i) != NULL; i++) {
+        free(*(array+i));
+    }
+    free(array);
+}
+
 /***
  * Double the size allocated to the variable if necessary.
  * @param array string array
@@ -422,13 +455,11 @@ char** combine_char_array(char** arr1, char** arr2) {
         for (i = 0; i < len1; i++) {
             combined[i] = malloc(sizeof(char) * (strlen(arr1[i]) + 1));
             strcpy(combined[i], arr1[i]);
-            free(arr1[i]);
         }
         if(len2 != 0) {
             for (int j = 0; j < len2; j++) {
                 combined[i] = malloc(sizeof(char) * (strlen(arr2[j]) + 1));
                 strcpy(combined[i], arr2[j]);
-                free(arr2[j]);
                 i++;
             }
         }
@@ -436,12 +467,9 @@ char** combine_char_array(char** arr1, char** arr2) {
         for (i = 0; i < len2; i++) {
             combined[i] = malloc(sizeof(char) * (strlen(arr2[i]) + 1));
             strcpy(combined[i], arr2[i]);
-            free(arr2[i]);
         }
     }
 
-    free(arr1);
-    free(arr2);
     // Add a NULL terminator at the end of the combined array
     combined[i] = NULL;
     return combined;
@@ -588,6 +616,7 @@ char ** replaceAsterisk(char * asteriskString) {
     return res;
 
 }
+
 void print_char_double_ptr(char **str) {
     int i = 0;
     while (str[i] != NULL) {
@@ -599,21 +628,24 @@ void print_char_double_ptr(char **str) {
 void joker_solo_asterisk(cmds_struct liste){
     //on commence par ajouter la commande dans le tableau args
     char ** args = malloc(sizeof(char *) * 2);
-    args[0] = malloc(sizeof(char) * (strlen(liste.cmds_array[0]) + 1));
-    strcpy(args[0],liste.cmds_array[0]);
-    free(liste.cmds_array[0]);
-    args[1] = NULL;
+    *(args+1) = NULL;
+    *args = malloc(sizeof(char) * (strlen(*liste.cmds_array) + 1));
+    strcpy(*args,*liste.cmds_array);
     // on combine args avec le nouveau char ** représentant les chaines obtenues en remplaçant * dans un argument de la liste.
     for(int i = 1; i < liste.taille_array; i++){
         // la fonction combine_char_array free ses deux arguments et renvoie un nouveau pointeur char ** (malloc a l'interieur)
         // la fonction replaceAsterisk free son argument et renvoie un char ** (malloc a l'interieur)
         //todo if replaceAsterisk n'a aucun string, alors donner liste.cmds_array[i]
-        args = combine_char_array(args, replaceAsterisk(liste.cmds_array[i]));
+        char** replace = replaceAsterisk(*(liste.cmds_array+i));
+        char** tmp = copyStringArray(args);
+        freeArray(args);
+        args = combine_char_array(tmp,replace);
+        freeArray(replace);
+        freeArray(tmp);
     }
-    free(liste.cmds_array);
+    cmds_struct new_liste;
     size_t tailleArray = 0;
     while(args[tailleArray] != NULL) tailleArray ++;
-    cmds_struct new_liste;
     new_liste.taille_array = tailleArray;
     new_liste.cmds_array = args;
     interpreter(new_liste);
@@ -735,9 +767,8 @@ void run(){
                 liste=lexer(ligne);
 
                 joker_solo_asterisk(liste);
-                //jokerSoloAsterisk(liste);
             }
-            //freeCmdsArray(liste);
+            freeCmdsArray(liste);
 
         }
         // exit when reached EOF
