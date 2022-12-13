@@ -333,6 +333,7 @@ void process_pwd_call(cmds_struct liste){
   else{
       printf("%s\n", pwd);
   }
+  errorCode = 0;
 }
 
 /***
