@@ -459,7 +459,7 @@ char** combine_char_array(char** arr1, char** arr2) {
     // Allocate a new char** array with the combined length of the two input arrays
     char** combined = malloc(sizeof(char*) * (len1 + len2 + 1));
     if(len1 + len2 == 0){
-        combined[0] = NULL;
+        *combined = NULL;
         return combined;
     }
 
@@ -614,7 +614,12 @@ char ** replaceAsterisk(char * asteriskString) {
             char *newString = malloc(sizeof(char) * (strlen(prefixe) + strlen(entry->d_name) + strlen(suffixe) + 1));
             testMalloc(newString);
             sprintf(newString, "%s%s%s", prefixe, entry->d_name, suffixe);
-            res = combine_char_array(res, replaceAsterisk(newString));
+            char** tmp = copyStringArray(res);
+            char** replace = replaceAsterisk(newString);
+            freeArray(res);
+            res = combine_char_array(tmp, replace);
+            freeArray(replace);
+            freeArray(tmp);
 
             // on incrémente le nombre d'entrées acceptées
             free(newString);
@@ -635,7 +640,8 @@ char ** replaceAsterisk(char * asteriskString) {
         free(asterisk);
     }
 
-    res = realloc(res, sizeof(char *) * 2);
+    freeArray(res);
+    res = malloc(sizeof(char *) * 2);
     res[0] = malloc(sizeof(char) * strlen(asteriskString) + 1);
     strcpy(res[0], asteriskString);
     res[1] = NULL;
