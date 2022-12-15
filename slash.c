@@ -604,10 +604,7 @@ char ** replaceAsterisk(char * asteriskString) {
         if (strlen(suffixe) != 0) {
             // dans ce cas, si le fichier n'est PAS un répertoire, on passe au suivant
             if (entry->d_type != DT_DIR && entry->d_type != DT_LNK) continue;
-
         }
-
-
         // à chaque correspondance entre le substring et entry, on realloc le tableau
         //
         if (strstrSuffixe(entry->d_name, asterisk) == 1) {
@@ -649,6 +646,7 @@ char ** replaceAsterisk(char * asteriskString) {
 
 }
 
+
 char* supprimer_occurences_slash(const char *s) {
     char *result = malloc(strlen(s) + 1);
     int isPreviousSlash = 0;
@@ -675,14 +673,14 @@ char* supprimer_occurences_slash(const char *s) {
 
 
 
+
+
 void joker_solo_asterisk(cmds_struct liste){
     //on commence par ajouter la commande dans le tableau args
-    char ** args = malloc(sizeof(char *) * 2);
-    *(args+1) = NULL;
-    *args = malloc(sizeof(char) * (strlen(*liste.cmds_array) + 1));
-    strcpy(*args,*liste.cmds_array);
+    char ** args = malloc(sizeof(char *));
+    *(args) = NULL;
     // on combine args avec le nouveau char ** représentant les chaines obtenues en remplaçant * dans un argument de la liste.
-    for(int i = 1; i < liste.taille_array; i++){
+    for(int i = 0; i < liste.taille_array; i++){
         // la fonction combine_char_array free ses deux arguments et renvoie un nouveau pointeur char ** (malloc a l'interieur)
         // la fonction replaceAsterisk free son argument et renvoie un char ** (malloc a l'interieur)
         char * suppressed_slash = supprimer_occurences_slash(*(liste.cmds_array+i));
