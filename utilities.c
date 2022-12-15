@@ -1,15 +1,13 @@
-#include "tests.h"
-#include <stdio.h>
-#include <readline/readline.h>
-#include <readline/history.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#include "slash.h"
-#include <errno.h>
-#include "dirent.h"
+#include "utilities.h"
+
+// Variables globales :
+int errorCode = 0;
+
+char * pwd;
+char * oldpwd;
+char * pwdPhy;
+char * home;
+
 
 /***
  * Checks if a malloc has failed.
@@ -46,7 +44,6 @@ cmds_struct copyCmdsStruct(cmds_struct liste){
     return cmds_cpy;
 }
 
-
 char** copyStringArray(char** liste){
     char** liste_cpy;
     size_t taille=0;
@@ -68,8 +65,6 @@ void freeArray(char** array) {
     free(array);
 }
 
-
-
 /***
  * Double the size allocated to the variable if necessary.
  * @param array string array
@@ -89,7 +84,6 @@ char** checkArraySize(char** array,size_t taille_array,size_t* taille_array_init
     }
     return array;
 }
-
 
 /***
  * Checks that a path is valid physically.

@@ -2,17 +2,23 @@ CC=gcc
 CFLAGS= -Wall -pedantic -g
 LIBS= -lreadline
 
-DEBUG = -fsanitize=address
+slash : commands.o lineTreatment.o slash.o utilities.o
+	$(CC) $(CFLAGS) utilities.o commands.o lineTreatment.o slash.o -o slash $(LIBS)
 
-prompt :
-	$(CC) $(CFLAGS) -o slash slash.c $(LIBS)
+commands.o : commands.c commands.h
+	$(CC) $(CFLAGS) -c commands.c -o commands.o
 
-promptDebug :
-	$(CC) $(CFLAGS) $(DEBUG) -o slash slash.c $(LIBS)
+lineTreatment.o : lineTreatment.c lineTreatment.h
+	$(CC) $(CFLAGS) -c lineTreatment.c -o lineTreatment.o
 
-promptTest : prompt
-	./test.sh
+slash.o : slash.c slash.h
+	$(CC) $(CFLAGS) -c slash.c -o slash.o
+
+utilities.o : utilities.c utilities.h
+	$(CC) $(CFLAGS) -c utilities.c -o utilities.o
 
 clean :
+	rm *.o
 	rm slash
+
 
