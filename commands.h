@@ -24,4 +24,10 @@ void process_pwd_call(cmds_struct liste);
  */
 void process_exit_call(cmds_struct liste);
 
+/***
+ * Runs external command
+ * @param liste struct for the command
+ */
+void process_external_command(cmds_struct liste);
+
 #endif //SLASH_COMMANDS_H

@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 #define MAX_ARGS_NUMBER 4096
 #define MAX_ARGS_STRLEN 4096

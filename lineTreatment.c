@@ -1,8 +1,6 @@
 #include "lineTreatment.h"
 
 
-
-
 // fonction qui renvoie la position de la premiere asterisk dans le string, ou alors -1 s'il n'y en a pas
 int getAsteriskPos(char * asteriskString){
     for(int index = 0; index < strlen(asteriskString); index++){
@@ -174,8 +172,24 @@ char* supprimer_occurences_slash(const char *s){
     return result;
 }
 
-
-
+/***
+ * Interprets the commands to call the corresponding functions.
+ * @param liste struct for the command
+ */
+void interpreter(cmds_struct liste) {
+    if(strcmp(*liste.cmds_array,"cd")==0){
+        process_cd_call(liste);
+    }
+    else if(strcmp(*liste.cmds_array,"pwd")==0){
+        process_pwd_call(liste);
+    }
+    else if(strcmp(*liste.cmds_array,"exit")==0){
+        process_exit_call(liste);
+    }
+    else{
+        process_external_command(liste);
+    }
+}
 
 
 void joker_solo_asterisk(cmds_struct liste){
@@ -212,24 +226,6 @@ void joker_solo_asterisk(cmds_struct liste){
     freeCmdsArray(new_liste);
 }
 
-/***
- * Interprets the commands to call the corresponding functions.
- * @param liste struct for the command
- */
-void interpreter(cmds_struct liste) {
-    if(strcmp(*liste.cmds_array,"cd")==0){
-        process_cd_call(liste);
-    }
-    else if(strcmp(*liste.cmds_array,"pwd")==0){
-        process_pwd_call(liste);
-    }
-    else if(strcmp(*liste.cmds_array,"exit")==0){
-        process_exit_call(liste);
-    }
-    else{
-        process_external_command(liste);
-    }
-}
 
 /***
  * Turns a line into a command structure.
