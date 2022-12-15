@@ -643,6 +643,30 @@ char ** replaceAsterisk(char * asteriskString) {
 
 }
 
+char* supprimer_occurences_slash(const char *s) {
+    char *result = malloc(strlen(s) + 1);
+    int isPreviousSlash = 0;
+    int j = 0;
+    for(int i = 0; s[i] != '\0'; i++) {
+        if(s[i] == '/'){
+            if(isPreviousSlash == 0){
+                isPreviousSlash = 1;
+                result[j] = s[i];
+                j++;
+            }
+        }else{
+            isPreviousSlash = 0;
+            result[j] = s[i];
+            j++;
+        }
+
+
+    }
+    result[j] = '\0';
+    //printf("s = %s --- res = %s\n",s,result);
+    return result;
+}
+
 
 
 void joker_solo_asterisk(cmds_struct liste){
@@ -655,13 +679,14 @@ void joker_solo_asterisk(cmds_struct liste){
     for(int i = 1; i < liste.taille_array; i++){
         // la fonction combine_char_array free ses deux arguments et renvoie un nouveau pointeur char ** (malloc a l'interieur)
         // la fonction replaceAsterisk free son argument et renvoie un char ** (malloc a l'interieur)
-        char** replace = replaceAsterisk(*(liste.cmds_array+i));
+        char * suppressed_slash = supprimer_occurences_slash(*(liste.cmds_array+i));
+        char** replace = replaceAsterisk(suppressed_slash);
         //si n'a aucun string, alors donner liste.cmds_array[i]
         if(replace[0] == NULL){
             freeArray(replace);
             replace = malloc(sizeof(char *) * 2);
-            replace[0] = malloc(sizeof(char) * (strlen(*(liste.cmds_array+i)) + 1));
-            strcpy(replace[0],*(liste.cmds_array+i));
+            replace[0] = malloc(sizeof(char) * (strlen(suppressed_slash) + 1));
+            strcpy(replace[0],suppressed_slash);
             replace[1] = NULL;
         }
         char** tmp = copyStringArray(args);
@@ -669,6 +694,7 @@ void joker_solo_asterisk(cmds_struct liste){
         args = combine_char_array(tmp,replace);
         freeArray(replace);
         freeArray(tmp);
+        free(suppressed_slash);
     }
     cmds_struct new_liste;
     size_t tailleArray = 0;
@@ -678,7 +704,6 @@ void joker_solo_asterisk(cmds_struct liste){
     interpreter(new_liste);
     freeCmdsArray(new_liste);
 }
-
 
 /***
  * Turns a line into a command structure.
