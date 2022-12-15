@@ -33,6 +33,16 @@ void testMalloc(void * ptr){
     }
 }
 
+void print_char_double_ptr(char **str) {
+    printf("print_char_double_ptr\n");
+    int i = 0;
+    while (str[i] != NULL) {
+        printf("i = %d\n", i);
+        printf("%s\n", str[i]);
+        i++;
+    }
+}
+
 /***
  * Free an instance of struct cmds_struct.
  * @param array cmds_struct
@@ -448,6 +458,10 @@ char** combine_char_array(char** arr1, char** arr2) {
 
     // Allocate a new char** array with the combined length of the two input arrays
     char** combined = malloc(sizeof(char*) * (len1 + len2 + 1));
+    if(len1 + len2 == 0){
+        combined[0] = NULL;
+        return combined;
+    }
 
     // Copy the elements from each input array into the combined array
     int i;
@@ -526,12 +540,26 @@ int strstrSuffixe(char * entry_name, char * asterisk_string){
 
 char ** replaceAsterisk(char * asteriskString) {
     int doesPreSuAstHaveBeenCreated = 0;
-    char **res = malloc(sizeof(char *) * 1);
+    char ** res = malloc(sizeof(char *) * 1);
     res[0] = NULL;
+
+
     int posAsterisk = getAsteriskPos(asteriskString);
 
-    // cas ou l'asterisk n'est pas préfixe ou qu'il n'y en a pas
-    if (posAsterisk == -1 || (posAsterisk != 0 && asteriskString[posAsterisk - 1] != '/')) goto error;
+    // cas ou il n'y a pas d'asterisk
+    if (posAsterisk == -1){
+        struct stat st;
+        // on vérifie que le chemin existe
+        if(lstat(asteriskString,&st) == 0){ // si oui, on va a end
+            goto endWithAsterisk;
+        }else{
+            return res; // sinon on renvoie res (vide)
+        }
+    }
+
+
+    // cas ou l'asterisk n'est pas préfixe
+    if((posAsterisk != 0 && asteriskString[posAsterisk - 1] != '/')) goto endWithAsterisk;
 
     /*on cherche à récupérer 3 char * correspondants à
      * la partie avant *
@@ -544,7 +572,7 @@ char ** replaceAsterisk(char * asteriskString) {
     char *suffixe = getSuffixe(tailleSuf, asteriskString);
 
 
-    // to free them in error statement
+    // to free them in end statement
     doesPreSuAstHaveBeenCreated = 1;
 
     //desormais on va ouvrir le repertoire préfixe
@@ -558,32 +586,37 @@ char ** replaceAsterisk(char * asteriskString) {
     }
 
     // On vérifie que le repertoire a bien été ouvert.
-    // S'il n'est pas ouvert, c'est que le chemin n'est pas valide, donc on l'envoie à la fonction sans le modifier.
-    // C'est cette dernière qui s'occupera de l'erreur
-    if (dir == NULL) goto error;
+    // S'il n'est pas ouvert, c'est que le chemin n'est pas valide
+    if (dir == NULL) {
+
+        free(prefixe);
+        free(suffixe);
+        free(asterisk);
+
+        return res;
+    }
 
     // on parcourt les entrées du répertoire
-    int countEntry = 0;
     while ((entry = readdir(dir)) != NULL) {
         // cas où le fichier est '.', '..' ou caché
         if (entry->d_name[0] == '.') continue;
         // cas ou il y a une suite à la sous chaine avec asterisk (*/test par exemple)
         if (strlen(suffixe) != 0) {
             // dans ce cas, si le fichier n'est PAS un répertoire, on passe au suivant
-            if (entry->d_type != DT_DIR) continue;
+            if (entry->d_type != DT_DIR && entry->d_type != DT_LNK) continue;
+
         }
 
 
         // à chaque correspondance entre le substring et entry, on realloc le tableau
         //
-        if (strstrSuffixe(entry->d_name, asterisk) == 1) { //todo faire une fonction qui vérifie que asterisk est en fin de entry->d_name
-            //printf("entrée = %s   ---   asterisk = %s\n", entry->d_name, asterisk);
+        if (strstrSuffixe(entry->d_name, asterisk) == 1) {
             char *newString = malloc(sizeof(char) * (strlen(prefixe) + strlen(entry->d_name) + strlen(suffixe) + 1));
+            testMalloc(newString);
             sprintf(newString, "%s%s%s", prefixe, entry->d_name, suffixe);
             res = combine_char_array(res, replaceAsterisk(newString));
 
             // on incrémente le nombre d'entrées acceptées
-            countEntry += 1;
             free(newString);
         }
     }
@@ -593,16 +626,9 @@ char ** replaceAsterisk(char * asteriskString) {
     free(suffixe);
     free(asterisk);
 
-    // Cas ou aucune entrée ne correspondait
-    if (countEntry == 0){
-        return res;
-    }
-
-
-
     return res;
 
-    error:
+    endWithAsterisk:
     if (doesPreSuAstHaveBeenCreated == 1) {
         free(prefixe);
         free(suffixe);
@@ -617,13 +643,7 @@ char ** replaceAsterisk(char * asteriskString) {
 
 }
 
-void print_char_double_ptr(char **str) {
-    int i = 0;
-    while (str[i] != NULL) {
-        printf("%s\n", str[i]);
-        i++;
-    }
-}
+
 
 void joker_solo_asterisk(cmds_struct liste){
     //on commence par ajouter la commande dans le tableau args
@@ -635,8 +655,15 @@ void joker_solo_asterisk(cmds_struct liste){
     for(int i = 1; i < liste.taille_array; i++){
         // la fonction combine_char_array free ses deux arguments et renvoie un nouveau pointeur char ** (malloc a l'interieur)
         // la fonction replaceAsterisk free son argument et renvoie un char ** (malloc a l'interieur)
-        //todo if replaceAsterisk n'a aucun string, alors donner liste.cmds_array[i]
         char** replace = replaceAsterisk(*(liste.cmds_array+i));
+        //si n'a aucun string, alors donner liste.cmds_array[i]
+        if(replace[0] == NULL){
+            freeArray(replace);
+            replace = malloc(sizeof(char *) * 2);
+            replace[0] = malloc(sizeof(char) * (strlen(*(liste.cmds_array+i)) + 1));
+            strcpy(replace[0],*(liste.cmds_array+i));
+            replace[1] = NULL;
+        }
         char** tmp = copyStringArray(args);
         freeArray(args);
         args = combine_char_array(tmp,replace);
@@ -781,11 +808,15 @@ void run(){
     }
 }
 
+
+
+
 /***
  * Call run() function
  * @return exit value
  */
 int main(void) {
+
     run();
     exit(errorCode);
 }
