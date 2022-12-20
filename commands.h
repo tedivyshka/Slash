@@ -2,6 +2,7 @@
 #define SLASH_COMMANDS_H
 
 #include "utilities.h"
+#include "signal.h"
 #include <errno.h>
 
 /***

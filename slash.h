@@ -3,6 +3,7 @@
 
 #include "utilities.h"
 #include "lineTreatment.h"
+#include "signal.h"
 #include <readline/readline.h>
 #include <readline/history.h>
 

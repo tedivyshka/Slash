@@ -85,11 +85,13 @@ void run(){
     }
 }
 
+
 /***
  * Call run() function
  * @return exit value
  */
 int main(void) {
+    initSignals();
     run();
     exit(errorCode);
 }

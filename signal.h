@@ -1,0 +1,4 @@
+
+void initSignals();
+
+void defaultSignals();

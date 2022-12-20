@@ -15,6 +15,7 @@ void process_external_command(cmds_struct liste){
 
     int status, r = fork();
     if(r == 0){
+        defaultSignals();
         execvp(args[0],args);
         exit(1);
     }
@@ -265,4 +266,3 @@ void process_exit_call(cmds_struct liste){
         exit(errorCode);
     }
 }
-
