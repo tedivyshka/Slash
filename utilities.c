@@ -161,3 +161,15 @@ char** combine_char_array(char** arr1, char** arr2) {
     combined[i] = NULL;
     return combined;
 }
+
+
+void print_char_double_ptr(char **str) {
+    printf("print_char_double_ptr\n");
+    int i = 0;
+    while (str[i] != NULL) {
+        printf("i = %d\n", i);
+        printf("%s\n", str[i]);
+        i++;
+    }
+}
+

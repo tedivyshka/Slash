@@ -1,6 +1,10 @@
 #include "lineTreatment.h"
 
-
+/*todo Pour éviter d'éventuels débordements (notamment lors de l'expansion des jokers),
+ * on pourra limiter le nombre et la taille des arguments autorisés sur une ligne de commande slash :
+ * #define MAX_ARGS_NUMBER 4096
+ * #define MAX_ARGS_STRLEN 4096
+ */
 // fonction qui renvoie la position de la premiere asterisk dans le string, ou alors -1 s'il n'y en a pas
 int getAsteriskPos(char * asteriskString){
     for(int index = 0; index < strlen(asteriskString); index++){
@@ -50,12 +54,13 @@ int strstrSuffixe(char * entry_name, char * asterisk_string){
     return 1;
 }
 
+
 char ** replaceAsterisk(char * asteriskString) {
+    //printf("--------------------- replaceAsterisk ---------------------------- \n");
     char ** res = malloc(sizeof(char *) * 1);
     res[0] = NULL;
-
-
     int posAsterisk = getAsteriskPos(asteriskString);
+
 
     // cas ou il n'y a pas d'asterisk
     if (posAsterisk == -1){
@@ -125,8 +130,6 @@ char ** replaceAsterisk(char * asteriskString) {
             res = combine_char_array(tmp, replace);
             freeArray(replace);
             freeArray(tmp);
-
-            // on incrémente le nombre d'entrées acceptées
             free(newString);
         }
     }
@@ -136,16 +139,193 @@ char ** replaceAsterisk(char * asteriskString) {
     free(suffixe);
     free(asterisk);
 
+    //printf("sortie normale replaceAsterisk \n");
+    //print_char_double_ptr(res);
     return res;
 
+    // cas où l'on doit retourner le chemin donné en argument, seul et inchangé
     endWithAsterisk:
     freeArray(res);
     res = malloc(sizeof(char *) * 2);
     res[0] = malloc(sizeof(char) * strlen(asteriskString) + 1);
     strcpy(res[0], asteriskString);
     res[1] = NULL;
+
+    //printf("sortie end replaceAsterisk \n");
+    //print_char_double_ptr(res);
     return res;
 
+}
+
+
+char ** doubleAsteriskParcours(char * path, char * suffixe){
+    //printf("------------------DoubleAsteriskParcours------------------\n");
+
+    char **res = malloc(sizeof(char *) * 1);
+    res[0] = NULL;
+
+    DIR *dir = NULL;
+    struct dirent *entry;
+    if (strcmp(path, "") == 0) dir = opendir(".");
+    else dir = opendir(path);
+    //printf("opendir\n");
+
+    // on parcourt le repertoire courant
+    while ((entry = readdir(dir)) != NULL) {
+        //printf("entry = %s\n",entry->d_name);
+
+
+        // cas où l'entrée est '.', '..' ou cachée
+        if (entry->d_name[0] == '.') continue;
+
+        // cas où l'entrée est un repertoire
+        if(entry->d_type == DT_DIR){
+            //printf("entry = repertory\n");
+            // on appelle replaceAsterisk avec path/completeSuffixe
+            // si le chemin n'existe pas, cet appel renverra un char ** vide
+            // sinon, il renverra les chemins possibles
+            char * newString = malloc(sizeof(char) * (strlen(path) + strlen(entry->d_name) + strlen(suffixe) + 3));
+            testMalloc(newString);
+            sprintf(newString, "%s/%s/%s", path, entry->d_name, suffixe);
+            char ** tmp = copyStringArray(res);
+            char ** replace = replaceAsterisk(newString);
+            freeArray(res);
+            res = combine_char_array(tmp, replace);
+            freeArray(replace);
+            freeArray(tmp);
+            free(newString);
+            //printf("sortie appel replaceAsterisk\n");
+
+            // maintenant on fait l'appel récursif,
+            // pour tester si un autre chemin n'existe pas plus loin dans l'arborescence
+            char * newPath;
+            if(strcmp(path, "") == 0){
+                newPath = malloc(sizeof(char) * (strlen(entry->d_name) + 1));
+                sprintf(newPath,"%s",entry->d_name);
+            }else{
+                newPath = malloc(sizeof(char) * (strlen(path) + strlen(entry->d_name) + 2));
+                sprintf(newPath,"%s/%s",path,entry->d_name);
+            }
+            tmp = copyStringArray(res);
+            replace = doubleAsteriskParcours(newPath, suffixe);
+            freeArray(res);
+            res = combine_char_array(tmp, replace);
+            freeArray(replace);
+            freeArray(tmp);
+            free(newPath);
+            //printf("sortie appel res doubleAsteriskParcours\n");
+
+
+        }
+    }
+
+
+    //print_char_double_ptr(res);
+    return res;
+}
+
+/*
+char ** doubleAsteriskParcours(char * path,char * suffixe, char * shortSuffixe){
+    printf("------------------DoubleAsteriskParcours------------------\n");
+
+    char ** res = malloc(sizeof(char *) * 1);
+    res[0] = NULL;
+
+    DIR * dir = NULL;
+    struct dirent *entry;
+    if(strcmp(path, "") == 0) dir = opendir(".");
+    else dir = opendir(path);
+    printf("opendir\n");
+    while((entry = readdir(dir)) != NULL){
+        printf("entry = %s\n",entry->d_name);
+        // cas où l'entrée est '.', '..' ou cachée
+        if (entry->d_name[0] == '.') continue;
+        // cas où l'entrée n'est pas un répertoire et qu'on est deja rentré dans un repertoire dans l'appel précédent
+        if (entry->d_type != DT_DIR) {
+            printf("fichier\n");
+            if(strcmp(path,"") != 0) {
+                printf("path not \"\"\n");
+                // cas etoile ?
+                if (suffixe[0] == '*') {
+                    // on commence par isoler le suffixe du suffixe (apres *)
+                    char *endSuffixe = malloc(sizeof(char) * strlen(suffixe));
+                    endSuffixe = getSuffixe(1, suffixe);
+                    endSuffixe[strlen(suffixe) - 1] = '\0';
+
+                    //on va comparer les entrées (fichiers) avec endSuffixe
+                    if (strstrSuffixe(entry->d_name, endSuffixe) == 1) {
+                        printf("correspondance fic / suffixe (avec *)\n");
+
+                        char **add = malloc(sizeof(char *) * 2);
+                        add[0] = malloc(sizeof(char *) * (strlen(path) + strlen(entry->d_name) + 2));
+                        sprintf(add[0], "%s/%s", path, entry->d_name);
+                        add[1] = NULL;
+                        char **tmp = copyStringArray(res);
+                        freeArray(res);
+                        res = combine_char_array(tmp, add);
+                        freeArray(add);
+                        freeArray(tmp);
+                    }
+                    free(endSuffixe);
+                } else {
+                    if (strcmp(entry->d_name, suffixe) == 0) {
+                        printf("correspondance fic / suffixe\n");
+
+                        char **add = malloc(sizeof(char *) * 2);
+                        add[0] = malloc(sizeof(char *) * (strlen(path) + strlen(suffixe) + 2));
+                        sprintf(add[0], "%s/%s", path, suffixe);
+                        add[1] = NULL;
+                        char **tmp = copyStringArray(res);
+                        freeArray(res);
+                        res = combine_char_array(tmp, add);
+                        freeArray(add);
+                        freeArray(tmp);
+                    } else {
+                        printf("pas de correspondance fic / suffixe\n");
+                    }
+                }
+            }
+        }else{         // on fait l'appel récursif sur tous les repertoires
+            printf("repertoire\n");
+            char * newPath;
+            if(strcmp(path, "") == 0){
+                newPath = malloc(sizeof(char) * (strlen(entry->d_name) + 1));
+                sprintf(newPath,"%s",entry->d_name);
+            }else{
+                newPath = malloc(sizeof(char) * (strlen(path) + strlen(entry->d_name) + 2));
+                sprintf(newPath,"%s/%s",path,entry->d_name);
+            }
+
+            char** tmp = copyStringArray(res);
+            printf("appel rec DAP avec newPath = %s, suffixe = %s, shortSuffixe = %s\n",newPath,suffixe, shortSuffixe);
+            char ** replace = doubleAsteriskParcours(newPath,suffixe,shortSuffixe);
+            freeArray(res);
+            res = combine_char_array(tmp, replace);
+            freeArray(replace);
+            freeArray(tmp);
+        }
+
+    }
+    printf("fin readdir\n");
+    closedir(dir);
+    return res;
+
+}
+*/
+
+char ** replaceDoubleAsterisk(char * asteriskString){
+    //printf("--------------------------------------- replaceDoubleAsterisk ------------------------------------------------\n");
+    char ** res = malloc(sizeof(char *) * 1);
+    res[0] = NULL;
+    char * suffixe = getSuffixe(3, asteriskString);
+    //printf("suffixe = %s\n",suffixe);
+    char** tmp = copyStringArray(res);
+    freeArray(res);
+    char** replace = doubleAsteriskParcours("", suffixe);
+    res = combine_char_array(tmp, replace);
+    freeArray(tmp);
+    freeArray(replace);
+    return res;
 }
 
 
@@ -193,15 +373,23 @@ void interpreter(cmds_struct liste) {
 
 
 void joker_solo_asterisk(cmds_struct liste){
+    //printf("joker_solo_asterisk \n");
     //on commence par ajouter la commande dans le tableau args
     char ** args = malloc(sizeof(char *));
     *(args) = NULL;
     // on combine args avec le nouveau char ** représentant les chaines obtenues en remplaçant * dans un argument de la liste.
     for(int i = 0; i < liste.taille_array; i++){
-        // la fonction combine_char_array free ses deux arguments et renvoie un nouveau pointeur char ** (malloc a l'interieur)
-        // la fonction replaceAsterisk free son argument et renvoie un char ** (malloc a l'interieur)
+        // la fonction combine_char_array renvoie un nouveau pointeur char ** (malloc à l'intérieur)
+        // la fonction replaceAsterisk renvoie un char ** (malloc à l'intérieur).
         char * suppressed_slash = supprimer_occurences_slash(*(liste.cmds_array+i));
-        char** replace = replaceAsterisk(suppressed_slash);
+        char** replace;
+        // si suppressed_slash commence par **/ on appelle replaceDoubleAsterisk
+        if(strlen(suppressed_slash) > 2 && suppressed_slash[0] == '*' && suppressed_slash[1] == '*' && suppressed_slash[2] == '/'){
+            replace = replaceDoubleAsterisk(suppressed_slash);
+        }else{ // sinon on utilise replaceAsterisk
+            replace = replaceAsterisk(suppressed_slash);
+        }
+
         //si n'a aucun string, alors donner liste.cmds_array[i]
         if(replace[0] == NULL){
             freeArray(replace);
@@ -224,6 +412,10 @@ void joker_solo_asterisk(cmds_struct liste){
     new_liste.cmds_array = args;
     interpreter(new_liste);
     freeCmdsArray(new_liste);
+}
+
+void joker_duo_asterisk(){
+
 }
 
 

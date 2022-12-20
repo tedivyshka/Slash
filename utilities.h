@@ -72,4 +72,6 @@ int isPathValidLo(char* path);
 
 char** combine_char_array(char** arr1, char** arr2);
 
+void print_char_double_ptr(char **str);
+
 #endif //SLASH_UTILITIES_H
