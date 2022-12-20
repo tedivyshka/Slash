@@ -1,7 +1,10 @@
 #include <signal.h>
 #include <stddef.h>
 
-
+/***
+ * A function to set the signal behavior of the program as wanted :
+ * ignore SIGINT and SIGTERM
+ */
 void initSignals(){
   for(int i = 1; i <= 31; i++){
     struct sigaction sa = {0};
@@ -18,6 +21,9 @@ void initSignals(){
   }
 }
 
+/***
+ * A function to reset the signal behavior of child process for external commands.
+ */
 void defaultSignals(){
   for(int i = 1; i <= 31; i++){
     struct sigaction sa = {0};

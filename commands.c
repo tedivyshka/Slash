@@ -22,6 +22,7 @@ void process_external_command(cmds_struct liste){
     else{
         wait(&status);
         errorCode = WEXITSTATUS(status);
+        if(WIFSIGNALED(status)) errorCode = -1;
 
         for(int i = 0; i < liste.taille_array+1; i++){
             free(args[i]);

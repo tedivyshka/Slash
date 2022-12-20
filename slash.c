@@ -27,6 +27,9 @@ char* promptGeneration(){
     if(errorCode==0){
         sprintf(res,"\001\033[32m\002[%d]\001\033[00m\002\001\033[34m\002%s\001\033[00m\002$ ",errorCode,new_curr);
     }
+    else if(errorCode==-1){
+      sprintf(res,"\001\033[91m\002[SIG]\001\033[00m\002\001\033[34m\002%s\001\033[00m\002$ ",new_curr);
+    }
     else{
         sprintf(res,"\001\033[91m\002[%d]\001\033[00m\002\001\033[34m\002%s\001\033[00m\002$ ",errorCode,new_curr);
     }
