@@ -1,5 +1,10 @@
 #include "lineTreatment.h"
 
+void perror_exit(char* msg){
+    perror(msg);
+    exit(1);
+}
+
 /*todo Pour éviter d'éventuels débordements (notamment lors de l'expansion des jokers),
  * on pourra limiter le nombre et la taille des arguments autorisés sur une ligne de commande slash :
  * #define MAX_ARGS_NUMBER 4096
@@ -352,27 +357,158 @@ char* supprimer_occurences_slash(const char *s){
     return result;
 }
 
+///////////////////////////////////////////////////
+
+void exec_command(cmd_struct list){
+    if(strcmp(*list.cmd_array,"cd")==0){
+        process_cd_call(list);
+    }
+    else if(strcmp(*list.cmd_array,"pwd")==0){
+        process_pwd_call(list);
+    }
+    else if(strcmp(*list.cmd_array,"exit")==0){
+        process_exit_call(list);
+    }
+    else{
+        process_external_command(list);
+    }
+}
+
+int strcmp_redirections(char* str) {
+    char *list[] = {"<", ">", ">|", ">>", "2>", "2>|", "2>>", "|"};
+
+    for (int i = 0; i < 8; ++i) {
+        if (strcmp(list[i], str) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/**
+ * Creates a cmds_struct with the commands separated by the redirection symbols.
+ * exemple : [0] "ls -l | wc -l" -> [0] "ls -l" [0] "|" [0] "wc -l" avec chaque [0] un tableau différent
+ * @param cmd the struct with an array of strings of the command line
+ * @return cmds_struct with the commands separated
+ */
+cmds_struct separate_redirections(cmd_struct cmd){
+    cmds_struct res;
+    res.taille_array=0;
+    cmd_struct* cmds_array=malloc(sizeof(cmd_struct)*MAX_ARGS_NUMBER);
+
+    int string_count=0;
+    int string_count_cmds=0;
+    // index of the last copied string
+    int size_tmp=0;
+    while(string_count<cmd.taille_array){
+        // when the current string is a redirection symbol
+        if(strcmp_redirections(*(cmd.cmd_array+string_count))==1){
+            // copy all strings before the symbol in one array
+            (cmds_array+res.taille_array)->cmd_array=malloc(sizeof(char*)*string_count_cmds+1);
+            testMalloc((cmds_array+res.taille_array)->cmd_array);
+            memcpy((cmds_array+res.taille_array)->cmd_array,(cmd.cmd_array+size_tmp),sizeof(char*)*(string_count_cmds+1));
+            size_tmp+=string_count_cmds;
+            (cmds_array+res.taille_array)->taille_array=string_count_cmds;
+
+            // copy the symbol in the next array
+            (cmds_array+res.taille_array+1)->cmd_array=malloc(sizeof(char*)*4);
+            testMalloc((cmds_array+res.taille_array+1)->cmd_array);
+            memcpy((cmds_array+res.taille_array+1)->cmd_array,(cmd.cmd_array+size_tmp),sizeof(char*)*(4));
+            (cmds_array+res.taille_array+1)->taille_array=1;
+            size_tmp+=1;
+
+            res.taille_array+=2;
+            string_count_cmds=0;
+        }
+        else{
+            string_count_cmds++;
+        }
+        string_count++;
+    }
+
+    // copy either the last part of the string or the string without redirections
+    (cmds_array+res.taille_array)->cmd_array=malloc(sizeof(char*)*(string_count_cmds+1));
+    testMalloc((cmds_array+res.taille_array)->cmd_array);
+    memcpy((cmds_array+res.taille_array)->cmd_array,(cmd.cmd_array+size_tmp),sizeof(char*)*(string_count_cmds+1));
+    (cmds_array+res.taille_array)->taille_array=string_count_cmds;
+    res.taille_array+=1;
+    cmds_array=realloc(cmds_array,sizeof(cmd_struct)*res.taille_array);
+    res.cmds_array=cmds_array;
+    return res;
+}
+
+void redirect(int oldfd,int newfd){
+    if(oldfd!=newfd){
+        if(dup2(oldfd,newfd)!=-1){
+            if(close(oldfd)){
+                perror_exit("close");
+            }
+        }
+        else{
+            perror_exit("dup2");
+        }
+    }
+}
+
+void handle_pipeline(cmds_struct list,size_t idx,int fd_in){
+    if(idx==list.taille_array-1){
+        redirect(fd_in,STDIN_FILENO);
+        exec_command(*(list.cmds_array+idx));
+        //perror_exit("exec last arg");
+    }
+    else{
+        int fd[2];
+        if(pipe(fd)==-1){
+            perror_exit("pipe");
+        }
+        switch (fork()) {
+            case -1:
+                perror_exit("fork");
+            case 0: // child
+                close(fd[0]);
+                redirect(fd_in,STDIN_FILENO);
+                redirect(fd[1],STDOUT_FILENO);
+                exec_command(*(list.cmds_array+idx));
+                //perror_exit("exec child");
+            default: // parent
+                close(fd[1]);
+                close(fd_in);
+                handle_pipeline(list,idx+2,fd[0]);
+        }
+    }
+}
 /***
  * Interprets the commands to call the corresponding functions.
  * @param liste struct for the command
  */
-void interpreter(cmds_struct liste) {
-    if(strcmp(*liste.cmds_array,"cd")==0){
-        process_cd_call(liste);
+void interpreter_new(cmd_struct list) {
+    cmds_struct separated_list=separate_redirections(list);
+    if(separated_list.taille_array%2==0){
+        perror_exit("syntax error");
     }
-    else if(strcmp(*liste.cmds_array,"pwd")==0){
-        process_pwd_call(liste);
+    //interpreter_aux(separated_list);
+    handle_pipeline(separated_list,0,STDIN_FILENO);
+}
+
+//////////////////////////////////////////////////////////////////
+
+void interpreter(cmd_struct list) {
+    if (strcmp(*list.cmd_array, "cd") == 0) {
+        process_cd_call(list);
     }
-    else if(strcmp(*liste.cmds_array,"exit")==0){
-        process_exit_call(liste);
+    else if (strcmp(*list.cmd_array, "pwd") == 0) {
+        process_pwd_call(list);
     }
-    else{
-        process_external_command(liste);
+    else if (strcmp(*list.cmd_array, "exit") == 0) {
+        process_exit_call(list);
+    }
+    else {
+        process_external_command(list);
     }
 }
 
 
-void joker_solo_asterisk(cmds_struct liste){
+void joker_solo_asterisk(cmd_struct liste){
     //printf("joker_solo_asterisk \n");
     //on commence par ajouter la commande dans le tableau args
     char ** args = malloc(sizeof(char *));
@@ -381,7 +517,7 @@ void joker_solo_asterisk(cmds_struct liste){
     for(int i = 0; i < liste.taille_array; i++){
         // la fonction combine_char_array renvoie un nouveau pointeur char ** (malloc à l'intérieur)
         // la fonction replaceAsterisk renvoie un char ** (malloc à l'intérieur).
-        char * suppressed_slash = supprimer_occurences_slash(*(liste.cmds_array+i));
+        char * suppressed_slash = supprimer_occurences_slash(*(liste.cmd_array+i));
         char** replace;
         // si suppressed_slash commence par **/ on appelle replaceDoubleAsterisk
         if(strlen(suppressed_slash) > 2 && suppressed_slash[0] == '*' && suppressed_slash[1] == '*' && suppressed_slash[2] == '/'){
@@ -390,7 +526,7 @@ void joker_solo_asterisk(cmds_struct liste){
             replace = replaceAsterisk(suppressed_slash);
         }
 
-        //si n'a aucun string, alors donner liste.cmds_array[i]
+        //si n'a aucun string, alors donner liste.cmd_array[i]
         if(replace[0] == NULL){
             freeArray(replace);
             replace = malloc(sizeof(char *) * 2);
@@ -405,13 +541,13 @@ void joker_solo_asterisk(cmds_struct liste){
         freeArray(tmp);
         free(suppressed_slash);
     }
-    cmds_struct new_liste;
+    cmd_struct new_liste;
     size_t tailleArray = 0;
     while(args[tailleArray] != NULL) tailleArray ++;
     new_liste.taille_array = tailleArray;
-    new_liste.cmds_array = args;
+    new_liste.cmd_array = args;
     interpreter(new_liste);
-    freeCmdsArray(new_liste);
+    freeCmdArray(new_liste);
 }
 
 void joker_duo_asterisk(){
@@ -422,11 +558,11 @@ void joker_duo_asterisk(){
 /***
  * Turns a line into a command structure.
  * @param ligne line from the prompt
- * @return struct cmds_struct
+ * @return struct cmd_struct
  */
-cmds_struct lexer(char* ligne){
-    char** cmds_array=malloc(sizeof(char*));
-    testMalloc(cmds_array);
+cmd_struct lexer(char* ligne){
+    char** cmd_array=malloc(sizeof(char*));
+    testMalloc(cmd_array);
     char* token;
     size_t* taille_array_init= malloc(sizeof(size_t));
     testMalloc(taille_array_init);
@@ -444,9 +580,9 @@ cmds_struct lexer(char* ligne){
             exit(1);
         }
 
-        cmds_array=checkArraySize(cmds_array,taille_array,taille_array_init);
-        *(cmds_array+taille_array)=malloc(sizeof(char)*(taille_token+1));
-        *(cmds_array+taille_array)=memcpy(*(cmds_array+taille_array),token,taille_token+1);
+        cmd_array=checkArraySize(cmd_array,taille_array,taille_array_init);
+        *(cmd_array+taille_array)=malloc(sizeof(char)*(taille_token+1));
+        *(cmd_array+taille_array)=memcpy(*(cmd_array+taille_array),token,taille_token+1);
         taille_array++;
     }
     while((token = strtok(NULL, " ")));
@@ -454,6 +590,6 @@ cmds_struct lexer(char* ligne){
 
     free(token);
     free(taille_array_init);
-    cmds_struct cmdsStruct = {.cmds_array=cmds_array, .taille_array=taille_array};
-    return cmdsStruct;
+    cmd_struct cmdStruct = {.cmd_array=cmd_array, .taille_array=taille_array};
+    return cmdStruct;
 }

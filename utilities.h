@@ -24,8 +24,13 @@ extern char * home;
 /***
  * A structure of commands with a list of String and the size of this list.
  */
+typedef struct cmd_struct{
+    char** cmd_array;
+    size_t taille_array;
+}cmd_struct;
+
 typedef struct cmds_struct{
-    char** cmds_array;
+    cmd_struct* cmds_array;
     size_t taille_array;
 }cmds_struct;
 
@@ -39,9 +44,9 @@ void testMalloc(void * ptr);
  * Free an instance of struct cmds_struct.
  * @param array cmds_struct
  */
-void freeCmdsArray(cmds_struct array);
+void freeCmdArray(cmd_struct array);
 
-cmds_struct copyCmdsStruct(cmds_struct liste);
+cmd_struct copyCmdsStruct(cmd_struct liste);
 
 char** copyStringArray(char** liste);
 

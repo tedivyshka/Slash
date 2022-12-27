@@ -22,26 +22,26 @@ void testMalloc(void * ptr){
 }
 
 /***
- * Free an instance of struct cmds_struct.
- * @param array cmds_struct
+ * Free an instance of struct cmd_struct.
+ * @param array cmd_struct
  */
-void freeCmdsArray(cmds_struct array) {
+void freeCmdArray(cmd_struct array) {
     for (int i = 0; i < array.taille_array; i++) {
-        free(*(array.cmds_array + i));
+        free(*(array.cmd_array + i));
     }
-    free(array.cmds_array);
+    free(array.cmd_array);
 }
 
-cmds_struct copyCmdsStruct(cmds_struct liste){
-    cmds_struct cmds_cpy;
-    cmds_cpy.taille_array= liste.taille_array;
-    cmds_cpy.cmds_array= malloc(sizeof(char *) * liste.taille_array);
-    memcpy(cmds_cpy.cmds_array,liste.cmds_array,sizeof(char *)*liste.taille_array);
+cmd_struct copyCmdtruct(cmd_struct liste){
+    cmd_struct cmd_cpy;
+    cmd_cpy.taille_array= liste.taille_array;
+    cmd_cpy.cmd_array= malloc(sizeof(char *) * liste.taille_array);
+    memcpy(cmd_cpy.cmd_array,liste.cmd_array,sizeof(char *)*liste.taille_array);
     for (int i = 0; i < liste.taille_array; i++){
-        *(cmds_cpy.cmds_array+i)= malloc(sizeof(char)* strlen(*(liste.cmds_array+i)));
-        strcpy(*(cmds_cpy.cmds_array+i),*(liste.cmds_array+i));
+        *(cmd_cpy.cmd_array+i)= malloc(sizeof(char)* strlen(*(liste.cmd_array+i)));
+        strcpy(*(cmd_cpy.cmd_array+i),*(liste.cmd_array+i));
     }
-    return cmds_cpy;
+    return cmd_cpy;
 }
 
 char** copyStringArray(char** liste){

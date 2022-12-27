@@ -18,10 +18,10 @@ void print_char_double_ptr(char **str) {
  * Temporary function used to debug.
  * @param liste list of string
  */
-void printListe(cmds_struct liste) {
+void printListe(cmd_struct liste) {
     int count=0;
     int countString=0;
-    char* string=*liste.cmds_array;
+    char* string=*liste.cmd_array;
     char c;
     while(count!=liste.taille_array){
         c=*(string+countString);
@@ -33,6 +33,6 @@ void printListe(cmds_struct liste) {
         printf("\n");
         countString=0;
         count++;
-        string=*(liste.cmds_array+count);
+        string=*(liste.cmd_array+count);
     }
 }

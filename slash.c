@@ -66,7 +66,7 @@ void run(){
     rl_outstream=stderr;
     initVar();
     char* ligne;
-    cmds_struct liste;
+    cmd_struct liste;
     while(1){
         char* tmp=promptGeneration();
         ligne=readline(tmp);
@@ -77,7 +77,7 @@ void run(){
                 liste=lexer(ligne);
                 joker_solo_asterisk(liste);
             }
-            freeCmdsArray(liste);
+            freeCmdArray(liste);
         }
         // exit when reached EOF
         else if(ligne==NULL){

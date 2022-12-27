@@ -10,8 +10,8 @@
  * @param ligne line from the prompt
  * @return struct cmds_struct
  */
-cmds_struct lexer(char* ligne);
+cmd_struct lexer(char* ligne);
 
-void joker_solo_asterisk(cmds_struct liste);
+void joker_solo_asterisk(cmd_struct liste);
 
 #endif //SLASH_LINETREATMENT_H

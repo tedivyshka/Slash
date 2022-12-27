@@ -4,12 +4,12 @@
  * Runs external command
  * @param liste struct for the command
  */
-void process_external_command(cmds_struct liste){
+void process_external_command(cmd_struct liste){
     char** args = malloc(sizeof(char*) * (liste.taille_array + 1));
     //Fill args array
     for(int i = 0; i < liste.taille_array; i++){
-        args[i] = malloc(sizeof(char) * strlen(*(liste.cmds_array + i)) + 1);
-        strcpy(args[i], *(liste.cmds_array + i));
+        args[i] = malloc(sizeof(char) * strlen(*(liste.cmd_array + i)) + 1);
+        strcpy(args[i], *(liste.cmd_array + i));
     }
     args[liste.taille_array] = NULL;
 
@@ -208,7 +208,7 @@ int process_cd(char * option, char * path){
  * Interprets the cd arguments to call process_cd with good parameters.
  * @param liste struct for the command
  */
-void process_cd_call(cmds_struct liste){
+void process_cd_call(cmd_struct liste){
     if(liste.taille_array>3){ // too many arguments
         errno = EINVAL;
         perror("slash: cd");
@@ -218,15 +218,15 @@ void process_cd_call(cmds_struct liste){
         errorCode = process_cd("-L", home);
     }
     else if(liste.taille_array == 3) { // option and path
-        errorCode = process_cd(*(liste.cmds_array + 1), *(liste.cmds_array + 2));
+        errorCode = process_cd(*(liste.cmd_array + 1), *(liste.cmd_array + 2));
     }
     else{ // no option or no path
         // no path
-        if(strcmp(*(liste.cmds_array + 1),"-L") == 0 || strcmp(*(liste.cmds_array + 1),"-P") == 0){
-            errorCode = process_cd(*(liste.cmds_array + 1), home);
+        if(strcmp(*(liste.cmd_array + 1),"-L") == 0 || strcmp(*(liste.cmd_array + 1),"-P") == 0){
+            errorCode = process_cd(*(liste.cmd_array + 1), home);
         }
         else {// no option
-            errorCode = process_cd("-L", *(liste.cmds_array + 1));
+            errorCode = process_cd("-L", *(liste.cmd_array + 1));
         }
     }
 }
@@ -235,9 +235,9 @@ void process_cd_call(cmds_struct liste){
  * Interprets the pwd arguments to call get_cwd with good parameters or print global variable pwd.
  * @param liste struct for the command
  */
-void process_pwd_call(cmds_struct liste){
+void process_pwd_call(cmd_struct liste){
     size_t size = liste.taille_array - 1;
-    if(size > 0 && (strcmp(liste.cmds_array[1],"-P")==0)){
+    if(size > 0 && (strcmp(liste.cmd_array[1],"-P")==0)){
         char* pwd_physique = malloc(sizeof(char)*BUFSIZE);
         getcwd(pwd_physique,BUFSIZE);
         printf("%s\n",pwd_physique);
@@ -253,14 +253,14 @@ void process_pwd_call(cmds_struct liste){
  * Interprets the exit arguments to call exit() with good value
  * @param liste struct for the command
  */
-void process_exit_call(cmds_struct liste){
+void process_exit_call(cmd_struct liste){
     if(liste.taille_array>2){
         errno = EINVAL;
         perror("slash: exit");
         errorCode=1;
     }
     if(liste.taille_array == 2){
-        int exit_value = atoi(*(liste.cmds_array+1));
+        int exit_value = atoi(*(liste.cmd_array+1));
         exit(exit_value);
     }
     else{
