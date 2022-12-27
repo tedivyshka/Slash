@@ -4,6 +4,9 @@
 #include "utilities.h"
 #include "commands.h"
 #include "dirent.h"
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 /***
  * Turns a line into a command structure.

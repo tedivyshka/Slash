@@ -13,6 +13,10 @@ void process_external_command(cmd_struct liste){
     }
     args[liste.taille_array] = NULL;
 
+
+    execvp(args[0],args);
+
+    /*
     int status, r = fork();
     if(r == 0){
         defaultSignals();
@@ -29,6 +33,7 @@ void process_external_command(cmd_struct liste){
         }
         free(args);
     }
+     */
 }
 
 

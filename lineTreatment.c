@@ -375,7 +375,7 @@ void exec_command(cmd_struct list){
 }
 
 int strcmp_redirections(char* str) {
-    char *list[] = {"<", ">", ">|", ">>", "2>", "2>|", "2>>", "|"};
+    char *list[] = {"<", ">", ">|", ">>", "2>", "2>|", "2>>"};
 
     for (int i = 0; i < 8; ++i) {
         if (strcmp(list[i], str) == 0) {
@@ -385,9 +385,46 @@ int strcmp_redirections(char* str) {
     return 0;
 }
 
+char* in_redir(cmd_struct cmd){
+    for(int i=0;i<cmd.taille_array;i++){
+        if(strcmp(*(cmd.cmd_array+i),"<")==0){
+            if(i+1==cmd.taille_array) perror_exit("input redirection");
+            return *(cmd.cmd_array+i+1);
+        }
+    }
+    return "stdin";
+}
+
+char* out_redir(cmd_struct cmd){
+    for(int i=0;i<cmd.taille_array;i++){
+        if(strcmp(*(cmd.cmd_array+i),">")==0){
+            if(i+1==cmd.taille_array) perror_exit("out redirection");
+            return *(cmd.cmd_array+i+1);
+        }
+    }
+    return "stdout";
+}
+
+char** err_redir(cmd_struct cmd){
+    char** res= malloc(sizeof(char*)*2);
+    for(int i=0;i<cmd.taille_array;i++){
+        if(strcmp_redirections(*(cmd.cmd_array+i))==1){
+            if(i+1==cmd.taille_array) perror_exit("stderr redirection");
+            strcpy(*res,*(cmd.cmd_array+i));
+            strcpy(*(res+1),*(cmd.cmd_array+i+1));
+            return res;
+        }
+    }
+    *res="stderr";
+    return res;
+}
+
+static size_t pipes_quantity=0;
+
 /**
  * Creates a cmds_struct with the commands separated by the redirection symbols.
- * exemple : [0] "ls -l | wc -l" -> [0] "ls -l" [0] "|" [0] "wc -l" avec chaque [0] un tableau différent
+ * exemple : [0] "ls -l | wc -l" -> [0] "ls -l" [0] "|" [0] "wc -l"
+ * avec chaque correspondant à [0] un tableau différent
  * @param cmd the struct with an array of strings of the command line
  * @return cmds_struct with the commands separated
  */
@@ -402,7 +439,8 @@ cmds_struct separate_redirections(cmd_struct cmd){
     int size_tmp=0;
     while(string_count<cmd.taille_array){
         // when the current string is a redirection symbol
-        if(strcmp_redirections(*(cmd.cmd_array+string_count))==1){
+        if(strcmp(*(cmd.cmd_array+string_count),"|")==0){
+            pipes_quantity++;
             // copy all strings before the symbol in one array
             (cmds_array+res.taille_array)->cmd_array=malloc(sizeof(char*)*string_count_cmds+1);
             testMalloc((cmds_array+res.taille_array)->cmd_array);
@@ -410,6 +448,8 @@ cmds_struct separate_redirections(cmd_struct cmd){
             size_tmp+=string_count_cmds;
             (cmds_array+res.taille_array)->taille_array=string_count_cmds;
 
+            res.taille_array++;
+            /*
             // copy the symbol in the next array
             (cmds_array+res.taille_array+1)->cmd_array=malloc(sizeof(char*)*4);
             testMalloc((cmds_array+res.taille_array+1)->cmd_array);
@@ -418,6 +458,8 @@ cmds_struct separate_redirections(cmd_struct cmd){
             size_tmp+=1;
 
             res.taille_array+=2;
+            */
+            size_tmp+=1;
             string_count_cmds=0;
         }
         else{
@@ -449,6 +491,92 @@ void redirect(int oldfd,int newfd){
         }
     }
 }
+
+static char* input_redir;
+static char* output_redir;
+
+void handle_redirection(cmds_struct cmds){
+    size_t num_commands=cmds.taille_array;
+    input_redir=in_redir(*cmds.cmds_array);
+    output_redir=out_redir(*(cmds.cmds_array+num_commands-1));
+    int output_fd;
+
+    // Create a pipe for each pair of adjacent commands
+    size_t num_pipes = num_commands-1;
+    int pipes[num_pipes][2];
+    for (int i = 0; i < num_pipes; i++) {
+        if (pipe(pipes[i]) < 0) {
+            perror("pipe");
+            exit(1);
+        }
+    }
+
+    // Create a child process for each command
+    pid_t child_pids[num_commands];
+    for (int i = 0; i < num_commands; i++) {
+        child_pids[i] = fork();
+        if (child_pids[i] < 0) {
+            perror("fork");
+            exit(1);
+        }
+    }
+
+    // Set up the pipeline and redirections in the child processes
+    for (int i = 0; i < num_commands; i++) {
+        if (child_pids[i] == 0) {
+            // Redirect standard input and standard output as appropriate
+            if (i == 0){
+                if(strcmp(input_redir,"stdin")==1) {
+                    // Redirect standard input from a file
+                    int input_fd = open(input_redir, O_RDONLY);
+                    if (input_fd < 0) perror_exit("open");
+                    dup2(input_fd, STDIN_FILENO);
+                    close(input_fd);
+                }
+            }
+            else if (i > 0) {
+                dup2(pipes[i - 1][0], STDIN_FILENO);
+            }
+            if (i < num_commands - 1) {
+                if(strcmp(output_redir,"stdout")==1){
+                    output_fd = open(output_redir, O_WRONLY);
+                    if (output_fd< 0) perror_exit("open");
+                    dup2(pipes[i][1], output_fd);
+                }
+                else{
+                    dup2(pipes[i][1], STDOUT_FILENO);
+                    close(pipes[i][1]);
+                }
+            }
+
+            // Close all unnecessary pipe ends
+            for (int j = 0; j < num_pipes; j++) {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+
+            // Execute the command
+            dprintf(STDERR_FILENO,"%s\n",(*(cmds.cmds_array+i)->cmd_array));
+            exec_command(*(cmds.cmds_array+i));
+            //execvp(*((cmds.cmds_array+i)->cmd_array),(cmds.cmds_array+i)->cmd_array);
+            perror_exit("execvp");
+        }
+    }
+    close(output_fd);
+
+    // Close all unnecessary pipe ends in the parent process
+    for (int i = 0; i < num_pipes; i++) {
+        close(pipes[i][0]);
+        close(pipes[i][1]);
+    }
+
+    // Wait for all child processes to complete
+    for (int i = 0; i < num_commands; i++) {
+        int status;
+        waitpid(child_pids[i], &status, 0);
+    }
+}
+
 
 void handle_pipeline(cmds_struct list,size_t idx,int fd_in){
     if(idx==list.taille_array-1){
@@ -484,10 +612,10 @@ void handle_pipeline(cmds_struct list,size_t idx,int fd_in){
 void interpreter_new(cmd_struct list) {
     cmds_struct separated_list=separate_redirections(list);
     if(separated_list.taille_array%2==0){
-        perror_exit("syntax error");
     }
+    handle_redirection(separated_list);
     //interpreter_aux(separated_list);
-    handle_pipeline(separated_list,0,STDIN_FILENO);
+    //handle_pipeline(separated_list,0,STDIN_FILENO);
 }
 
 //////////////////////////////////////////////////////////////////
@@ -546,7 +674,7 @@ void joker_solo_asterisk(cmd_struct liste){
     while(args[tailleArray] != NULL) tailleArray ++;
     new_liste.taille_array = tailleArray;
     new_liste.cmd_array = args;
-    interpreter(new_liste);
+    interpreter_new(new_liste);
     freeCmdArray(new_liste);
 }
 
