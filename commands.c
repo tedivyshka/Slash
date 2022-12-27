@@ -17,7 +17,7 @@ void process_external_command(cmd_struct liste){
     if(r == 0){
         defaultSignals();
         execvp(args[0],args);
-        exit(1);
+        exit(127);
     }
     else{
         wait(&status);
