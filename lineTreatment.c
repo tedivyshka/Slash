@@ -361,7 +361,8 @@ static int saved[3]={-1,-1,-1};
 static int duped[3]={0,1,2};
 
 void reset_redi(){
-    for(int i=0; i<3; i++){
+    size_t size=sizeof(saved)/sizeof(*saved);
+    for(int i=0; i<size; i++){
         if(saved[i]!=-1)
             dup2(saved[i],duped[i]);
         close(saved[i]);
@@ -435,7 +436,8 @@ char** out_redir(cmd_struct cmd){
     for(int i=0;i<cmd.taille_array;i++){
         if((strcmp(*(cmd.cmd_array+i),">")==0 || strcmp(*(cmd.cmd_array+i),">|")==0 || strcmp(*(cmd.cmd_array+i),">>")==0)){
             if(i+1==cmd.taille_array) perror_exit("out redirection");
-            //todo malloc avant cpy
+            *res=malloc(sizeof(char)*strlen(*(cmd.cmd_array+i))+1);
+            *(res+1)=malloc(sizeof(char)*strlen(*(cmd.cmd_array+i+1))+1);
             strcpy(*res,*(cmd.cmd_array+i));
             strcpy(*(res+1),*(cmd.cmd_array+i+1));
             return res;
@@ -450,7 +452,8 @@ char** err_redir(cmd_struct cmd){
     for(int i=0;i<cmd.taille_array;i++){
         if((strcmp(*(cmd.cmd_array+i),"2>")==0 || strcmp(*(cmd.cmd_array+i),"2>|")==0 || strcmp(*(cmd.cmd_array+i),"2>>")==0)){
             if(i+1==cmd.taille_array) perror_exit("stderr redirection");
-            // todo malloc avant cpy
+            *res=malloc(sizeof(char)*strlen(*(cmd.cmd_array+i))+1);
+            *(res+1)=malloc(sizeof(char)*strlen(*(cmd.cmd_array+i+1))+1);
             strcpy(*res,*(cmd.cmd_array+i));
             strcpy(*(res+1),*(cmd.cmd_array+i+1));
             return res;
@@ -529,6 +532,7 @@ void handle_pipe(cmds_struct cmds){
     input_redir=in_redir(*cmds.cmds_array);
     output_redir=out_redir(*(cmds.cmds_array+num_commands-1));
     int output_fd;
+    int error_fd;
 
     // create a pipe for each pair of adjacent commands
     size_t num_pipes=num_commands-1;
@@ -571,7 +575,7 @@ void handle_pipe(cmds_struct cmds){
                 dup2(pipes[i][1],STDOUT_FILENO);
             }
             // redirect standard output
-            else if(strcmp(*output_redir,"stdout")==0){
+            if(strcmp(*output_redir,"stdout")==0){
                 // redirect standard output to a file
                 if(strcmp(*output_redir,">") == 0){
                   output_fd = open(*(output_redir+1), O_WRONLY | O_CREAT | O_EXCL);
@@ -595,20 +599,20 @@ void handle_pipe(cmds_struct cmds){
             if(strcmp(*error_redir,"sdterr")==0){
               // redirect error output to a file
               if(strcmp(*output_redir,"2>") == 0){
-                output_fd = open(*(error_redir+1), O_WRONLY | O_CREAT | O_EXCL);
+                error_fd= open(*(error_redir+1), O_WRONLY | O_CREAT | O_EXCL);
               }
               else if(strcmp(*output_redir,"2>>") == 0){
-                output_fd = open(*(error_redir+1), O_WRONLY | O_CREAT | O_APPEND);
+                error_fd= open(*(error_redir+1), O_WRONLY | O_CREAT | O_APPEND);
               }
               else if(strcmp(*output_redir,"2>|") == 0){
-                output_fd = open(*(error_redir+1), O_WRONLY | O_CREAT | O_TRUNC);
+                error_fd= open(*(error_redir+1), O_WRONLY | O_CREAT | O_TRUNC);
               }
 
-              if (output_fd<0) {
+              if (error_fd<0) {
                   perror_exit("open");
               }
-              dup2(output_fd,STDERR_FILENO);
-              close(output_fd);
+              dup2(error_fd,STDERR_FILENO);
+              close(error_fd);
             }
 
             // close all unnecessary pipe ends
@@ -658,7 +662,10 @@ void handle_redirection(cmd_struct cmd){
         if(strcmp(*(line+i),"<")==0){
             i++;
             int in_fd=open(*(line+i),in_flags, S_IRUSR);
-            if(in_fd<0) perror_exit("open");
+            if(in_fd<0){
+                errorCode=1;
+                return;
+            }
             saved[0]=dup(0);
             if(dup2(in_fd,STDIN_FILENO)<0) perror_exit("dup2");
             if(close(in_fd)<0) perror_exit("close");
@@ -679,7 +686,10 @@ void handle_redirection(cmd_struct cmd){
             }
             i++;
             int out_fd=open(*(line+i),out_flags, S_IRUSR | S_IWUSR);
-            if(out_fd<0) perror_exit("open");
+            if(out_fd<0){
+                errorCode=1;
+                return;
+            }
             saved[1]=dup(1);
             if(dup2(out_fd,STDOUT_FILENO)<0) perror_exit("dup2");
             if(close(out_fd)<0) perror_exit("close");
@@ -700,13 +710,17 @@ void handle_redirection(cmd_struct cmd){
             }
             i++;
             int err_fd=open(*(line+i),err_flags,0644);
-            if(err_fd<0) perror_exit("open");
+            if(err_fd<0){
+                errorCode=1;
+                return;
+            }
             saved[2]=dup(2);
             if(dup2(err_fd,STDERR_FILENO)<0) perror_exit("dup2");
             if(close(err_fd)<0) perror_exit("close");
         }
         i++;
     }
+    exec_command_redirection(cmd);
 }
 
 /***
@@ -720,7 +734,6 @@ void interpreter_new(cmd_struct list) {
     }
     else{
         handle_redirection(*separated_list.cmds_array);
-        exec_command_redirection(*separated_list.cmds_array);
     }
 }
 
