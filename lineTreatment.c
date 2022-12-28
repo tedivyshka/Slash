@@ -563,7 +563,7 @@ void handle_pipe(cmds_struct cmds){
         if (child_pids[i]==0) {
             // redirect standard input
             if (i==0){
-                if(strcmp(input_redir,"stdin")==0) {
+                if(strcmp(input_redir,"stdin")==1) {
                     // redirect standard input from a file
                     int input_fd=open(input_redir,O_RDONLY, 0666);
                     if (input_fd<0){
@@ -580,7 +580,7 @@ void handle_pipe(cmds_struct cmds){
                 dup2(pipes[i][1],STDOUT_FILENO);
             }
             // redirect standard output
-            else if(strcmp(*output_redir,"stdout")==0){
+            else if(strcmp(*output_redir,"stdout")==1){
                 // redirect standard output to a file
                 if(strcmp(*output_redir,">") == 0){
                   output_fd = open(*(output_redir+1), O_WRONLY | O_CREAT | O_EXCL, 0666);
