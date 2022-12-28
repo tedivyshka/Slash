@@ -590,6 +590,27 @@ void handle_pipe(cmds_struct cmds){
                 close(output_fd);
             }
 
+            //redirect error output
+            error_redir = err_redir((*(cmds.cmds_array+i)));
+            if(strcmp(*error_redir,"sdterr")==0){
+              // redirect error output to a file
+              if(strcmp(*output_redir,"2>") == 0){
+                output_fd = open(*(error_redir+1), O_WRONLY | O_CREAT | O_EXCL);
+              }
+              else if(strcmp(*output_redir,"2>>") == 0){
+                output_fd = open(*(error_redir+1), O_WRONLY | O_CREAT | O_APPEND);
+              }
+              else if(strcmp(*output_redir,"2>|") == 0){
+                output_fd = open(*(error_redir+1), O_WRONLY | O_CREAT | O_TRUNC);
+              }
+
+              if (output_fd<0) {
+                  perror_exit("open");
+              }
+              dup2(output_fd,STDERR_FILENO);
+              close(output_fd);
+            }
+
             // close all unnecessary pipe ends
             for (int j=0; j<num_pipes; j++) {
                 close(pipes[j][0]);
