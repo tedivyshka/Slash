@@ -382,6 +382,7 @@ void exec_command_redirection(cmd_struct list){
     else{
         process_exit_call(list);
     }
+    fflush(stdout);
     reset_redi();
 }
 
