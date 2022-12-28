@@ -68,20 +68,21 @@ void run(){
     char* ligne;
     cmd_struct liste;
     while(1){
+        //dprintf(STDERR_FILENO,"dans boucle : %d\n",getpid());
         char* tmp=promptGeneration();
         ligne=readline(tmp);
         // checks if ligne is empty after readline return
-        if(ligne && *ligne){
+        // exit when reached EOF
+        if(ligne==NULL){
+            exit(errorCode);
+        }
+        else if(ligne && *ligne){
             if(strcmp(ligne,"\n")!=0){
                 add_history(ligne);
                 liste=lexer(ligne);
                 joker_solo_asterisk(liste);
             }
             freeCmdArray(liste);
-        }
-        // exit when reached EOF
-        else if(ligne==NULL){
-            exit(errorCode);
         }
         free(ligne);
         free(tmp);

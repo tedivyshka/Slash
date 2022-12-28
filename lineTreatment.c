@@ -361,8 +361,7 @@ static int saved[3]={-1,-1,-1};
 static int duped[3]={0,1,2};
 
 void reset_redi(){
-    size_t size=sizeof(saved)/sizeof(*saved);
-    for(int i=0; i<size; i++){
+    for(int i=0; i<3; i++){
         if(saved[i]!=-1)
             dup2(saved[i],duped[i]);
         close(saved[i]);
@@ -378,7 +377,6 @@ void exec_command_redirection(cmd_struct list){
     else if(strcmp(*list.cmd_array,"pwd")==0){
         process_pwd_call(list);
     }
-    //else if(strcmp(*list.cmd_array,"exit")==0){
     else{
         process_exit_call(list);
     }
@@ -386,7 +384,13 @@ void exec_command_redirection(cmd_struct list){
     reset_redi();
 }
 
-void exec_command_pipeline(cmd_struct list,int pid){
+void exec_command_extern(cmd_struct list,pid_t pid){
+    defaultSignals();
+    process_external_command_pipeline(list,pid);
+    exit(errorCode);
+}
+
+void exec_command_pipeline(cmd_struct list,pid_t pid){
     //dprintf(STDERR_FILENO,"dans redi extern ou pipe");
     if(pid==0){
         defaultSignals();
@@ -648,11 +652,33 @@ void handle_pipe(cmds_struct cmds){
     }
 }
 
+
+void printListe(cmd_struct liste) {
+    int count=0;
+    int countString=0;
+    char* string=*liste.cmd_array;
+    char c;
+    while(count!=liste.taille_array){
+        c=*(string+countString);
+        while(c!=EOF && c!='\0'){
+            printf("%d : %c\n",count,c);
+            countString++;
+            c=*(string+countString);
+        }
+        printf("\n");
+        countString=0;
+        count++;
+        string=*(liste.cmd_array+count);
+    }
+}
+
 void handle_redirection_intern(cmd_struct cmd){
     char** line=cmd.cmd_array;
     int in_flags=O_RDONLY;
     int out_flags;
     int err_flags;
+
+    //dprintf(STDERR_FILENO,"dans intern hors d'un fork: %d",getpid());
 
     int i=0;
     while(i<cmd.taille_array){
@@ -734,6 +760,7 @@ void handle_redirection_extern(cmd_struct cmd){
         perror_exit("fork");
     }
     else if(pid==0){
+        //dprintf(STDERR_FILENO,"dans extern fils: %d\n",getpid());
         for(int i=0; i<cmd.taille_array; ++i){
             // input redirection
             if(strcmp(*(line+i),"<")==0){
@@ -764,6 +791,9 @@ void handle_redirection_extern(cmd_struct cmd){
                 i++;
                 int out_fd=open(*(line+i),out_flags, 0666);
                 if(out_fd<0){
+                    if(strcmp(*(line+i-1),">")==0){
+                        perror_exit(">");
+                    }
                     errorCode=1;
                     return;
                 }
@@ -788,6 +818,9 @@ void handle_redirection_extern(cmd_struct cmd){
                 i++;
                 int err_fd=open(*(line+i),err_flags,0666);
                 if(err_fd<0){
+                    if(strcmp(*(line+i-1),"2>")==0){
+                        perror_exit("2>");
+                    }
                     errorCode=1;
                     return;
                 }
@@ -797,11 +830,16 @@ void handle_redirection_extern(cmd_struct cmd){
             }
         }
         cmd_struct removed_cmd=remove_redirections(cmd);
-        exec_command_pipeline(removed_cmd,pid);
+        exec_command_extern(removed_cmd,pid);
+        perror_exit("execvp");
     }
     else{
+        //dprintf(STDERR_FILENO,"pid fils : %d\n",pid);
+        //dprintf(STDERR_FILENO,"dans extern père: %d\n",getpid());
+        reset_redi();
         int status;
-        wait(&status);
+        waitpid(pid,&status,0);
+        //dprintf(STDERR_FILENO,"FILS TERMINE %d\n",pid);
         errorCode = WEXITSTATUS(status);
         if(WIFSIGNALED(status)) errorCode = -1;
     }
