@@ -14,7 +14,9 @@ char* promptGeneration(){
 
     // copy only the 22 characters wanted to create a prompt of 30 characters
     if(curr_path_size>25){
-        size_t wanted_size_path=22;
+        size_t wanted_size_path;
+        if(errorCode == -1) wanted_size_path=20;
+        else wanted_size_path=22;
         size_t beginning_size=curr_path_size-wanted_size_path;
         strcpy(tmp_curr,curr_path_cpy+beginning_size);
         sprintf(new_curr,"...%s",tmp_curr);
@@ -28,7 +30,7 @@ char* promptGeneration(){
         sprintf(res,"\001\033[32m\002[%d]\001\033[00m\002\001\033[34m\002%s\001\033[00m\002$ ",errorCode,new_curr);
     }
     else if(errorCode==-1){
-      sprintf(res,"\001\033[91m\002[SIG]\001\033[00m\002\001\033[34m\002%s\001\033[00m\002$ ",new_curr);
+      sprintf(res,"\n\001\033[91m\002[SIG]\001\033[00m\002\001\033[34m\002%s\001\033[00m\002$ ",new_curr);
     }
     else{
         sprintf(res,"\001\033[91m\002[%d]\001\033[00m\002\001\033[34m\002%s\001\033[00m\002$ ",errorCode,new_curr);
