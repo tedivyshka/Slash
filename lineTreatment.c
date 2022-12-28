@@ -410,6 +410,26 @@ void exec_command_pipeline(cmd_struct list,pid_t pid){
     }
 }
 
+void printListe(cmd_struct liste) {
+    int count=0;
+    int countString=0;
+    char* string=*liste.cmd_array;
+    char c;
+    while(count!=liste.taille_array){
+        c=*(string+countString);
+        while(c!=EOF && c!='\0'){
+            dprintf(STDERR_FILENO,"%d : %c\n",count,c);
+            countString++;
+            c=*(string+countString);
+        }
+        dprintf(STDERR_FILENO,"\n");
+        countString=0;
+        count++;
+        string=*(liste.cmd_array+count);
+    }
+}
+
+
 /**
  * Compare a string to multiple redirection signs (<,>,>|,>>,2>,2>|,2>>)
  * @param str the string to compare to
@@ -433,7 +453,7 @@ char* in_redir(cmd_struct cmd){
             return *(cmd.cmd_array+i+1);
         }
     }
-    return "stdin";
+    return "";
 }
 
 char** out_redir(cmd_struct cmd){
@@ -448,7 +468,7 @@ char** out_redir(cmd_struct cmd){
             return res;
         }
     }
-    *res="stdout";
+    *res="";
     return res;
 }
 
@@ -464,7 +484,7 @@ char** err_redir(cmd_struct cmd){
             return res;
         }
     }
-    *res="stderr";
+    *res="";
     return res;
 }
 
@@ -563,7 +583,7 @@ void handle_pipe(cmds_struct cmds){
         if (child_pids[i]==0) {
             // redirect standard input
             if (i==0){
-                if(strcmp(input_redir,"stdin")==1) {
+                if(strcmp(input_redir,"")!=0) {
                     // redirect standard input from a file
                     int input_fd=open(input_redir,O_RDONLY, 0666);
                     if (input_fd<0){
@@ -580,7 +600,7 @@ void handle_pipe(cmds_struct cmds){
                 dup2(pipes[i][1],STDOUT_FILENO);
             }
             // redirect standard output
-            else if(strcmp(*output_redir,"stdout")==1){
+            else if(strcmp(*output_redir,"")!=0){
                 // redirect standard output to a file
                 if(strcmp(*output_redir,">") == 0){
                   output_fd = open(*(output_redir+1), O_WRONLY | O_CREAT | O_EXCL, 0666);
@@ -600,24 +620,25 @@ void handle_pipe(cmds_struct cmds){
             }
 
             //redirect error output
-            error_redir = err_redir((*(cmds.cmds_array+i)));
-            if(strcmp(*error_redir,"sdterr")==0){
-              // redirect error output to a file
-              if(strcmp(*output_redir,"2>") == 0){
-                error_fd= open(*(error_redir+1), O_WRONLY | O_CREAT | O_EXCL, 0666);
-              }
-              else if(strcmp(*output_redir,"2>>") == 0){
-                error_fd= open(*(error_redir+1), O_WRONLY | O_CREAT | O_APPEND, 0666);
-              }
-              else if(strcmp(*output_redir,"2>|") == 0){
-                error_fd= open(*(error_redir+1), O_WRONLY | O_CREAT | O_TRUNC, 0666);
-              }
-
-              if (error_fd<0) {
-                  perror_exit("open");
-              }
-              dup2(error_fd,STDERR_FILENO);
-              close(error_fd);
+            error_redir=err_redir((*(cmds.cmds_array+i)));
+            if(strcmp(*error_redir,"")!=0){
+                // redirect error output to a file
+                if(strcmp(*error_redir,"2>")==0){
+                    //dprintf(STDERR_FILENO,"%s\n",*(error_redir));
+                    //dprintf(STDERR_FILENO,"%s\n",*(error_redir+1));
+                    error_fd=open(*(error_redir+1),O_WRONLY | O_CREAT | O_EXCL,0666);
+                }
+                else if(strcmp(*error_redir,"2>>")==0){
+                    error_fd=open(*(error_redir+1),O_WRONLY | O_CREAT | O_APPEND,0666);
+                }
+                else if(strcmp(*error_redir,"2>|")==0){
+                    error_fd=open(*(error_redir+1),O_WRONLY | O_CREAT | O_TRUNC,0666);
+                }
+                if(error_fd<0){
+                    perror_exit("open");
+                }
+                dup2(error_fd,STDERR_FILENO);
+                close(error_fd);
             }
 
             // close all unnecessary pipe ends
@@ -627,8 +648,8 @@ void handle_pipe(cmds_struct cmds){
             }
 
             // execute the command
-            //dprintf(STDERR_FILENO,"%s\n",*((cmds.cmds_array+i)->cmd_array));
-            exec_command_pipeline(*(cmds.cmds_array+i),child_pids[i]);
+            cmd_struct removed_cmd=remove_redirections(*(cmds.cmds_array+i));
+            exec_command_pipeline(removed_cmd,child_pids[i]);
             perror_exit("execvp");
         }
     }
@@ -649,26 +670,6 @@ void handle_pipe(cmds_struct cmds){
         }
         if(errorCode==1) break;
         if(WIFSIGNALED(status)) errorCode = -1;
-    }
-}
-
-
-void printListe(cmd_struct liste) {
-    int count=0;
-    int countString=0;
-    char* string=*liste.cmd_array;
-    char c;
-    while(count!=liste.taille_array){
-        c=*(string+countString);
-        while(c!=EOF && c!='\0'){
-            printf("%d : %c\n",count,c);
-            countString++;
-            c=*(string+countString);
-        }
-        printf("\n");
-        countString=0;
-        count++;
-        string=*(liste.cmd_array+count);
     }
 }
 
