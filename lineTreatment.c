@@ -560,7 +560,7 @@ void handle_pipe(cmds_struct cmds){
             if (i==0){
                 if(strcmp(input_redir,"stdin")==0) {
                     // redirect standard input from a file
-                    int input_fd=open(input_redir,O_RDONLY);
+                    int input_fd=open(input_redir,O_RDONLY, 0666);
                     if (input_fd<0){
                         perror_exit("open");
                     }
@@ -578,13 +578,13 @@ void handle_pipe(cmds_struct cmds){
             if(strcmp(*output_redir,"stdout")==0){
                 // redirect standard output to a file
                 if(strcmp(*output_redir,">") == 0){
-                  output_fd = open(*(output_redir+1), O_WRONLY | O_CREAT | O_EXCL);
+                  output_fd = open(*(output_redir+1), O_WRONLY | O_CREAT | O_EXCL, 0666);
                 }
                 else if(strcmp(*output_redir,">>") == 0){
-                  output_fd = open(*(output_redir+1), O_WRONLY | O_CREAT | O_APPEND);
+                  output_fd = open(*(output_redir+1), O_WRONLY | O_CREAT | O_APPEND, 0666);
                 }
                 else if(strcmp(*output_redir,">|") == 0){
-                  output_fd = open(*(output_redir+1), O_WRONLY | O_CREAT | O_TRUNC);
+                  output_fd = open(*(output_redir+1), O_WRONLY | O_CREAT | O_TRUNC, 0666);
                 }
 
                 if (output_fd<0) {
@@ -599,13 +599,13 @@ void handle_pipe(cmds_struct cmds){
             if(strcmp(*error_redir,"sdterr")==0){
               // redirect error output to a file
               if(strcmp(*output_redir,"2>") == 0){
-                error_fd= open(*(error_redir+1), O_WRONLY | O_CREAT | O_EXCL);
+                error_fd= open(*(error_redir+1), O_WRONLY | O_CREAT | O_EXCL, 0666);
               }
               else if(strcmp(*output_redir,"2>>") == 0){
-                error_fd= open(*(error_redir+1), O_WRONLY | O_CREAT | O_APPEND);
+                error_fd= open(*(error_redir+1), O_WRONLY | O_CREAT | O_APPEND, 0666);
               }
               else if(strcmp(*output_redir,"2>|") == 0){
-                error_fd= open(*(error_redir+1), O_WRONLY | O_CREAT | O_TRUNC);
+                error_fd= open(*(error_redir+1), O_WRONLY | O_CREAT | O_TRUNC, 0666);
               }
 
               if (error_fd<0) {
@@ -674,18 +674,18 @@ void handle_redirection(cmd_struct cmd){
         else if(strcmp(*(line+i),">")==0 || strcmp(*(line+i),">|")==0 || strcmp(*(line+i),">>")==0){
             if(strcmp(*(line+i),">")==0){
                 //out_flags|=O_CREAT | O_EXCL;
-                out_flags=O_RDWR | O_CREAT | O_EXCL;
+                out_flags=O_WRONLY | O_CREAT | O_EXCL;
             }
             else if(strcmp(*(line+i),">>")==0){
                 //out_flags|=O_CREAT | O_APPEND;
-                out_flags=O_RDWR | O_CREAT | O_APPEND;
+                out_flags=O_WRONLY | O_CREAT | O_APPEND;
             }
             else if(strcmp(*(line+i),">|")==0){
                 //out_flags|=O_TRUNC;
-                out_flags=O_RDWR | O_TRUNC;
+                out_flags=O_WRONLY | O_CREAT | O_TRUNC;
             }
             i++;
-            int out_fd=open(*(line+i),out_flags, S_IRUSR | S_IWUSR);
+            int out_fd=open(*(line+i),out_flags, 0666);
             if(out_fd<0){
                 errorCode=1;
                 return;
