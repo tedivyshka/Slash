@@ -1,10 +1,10 @@
 #include "commands.h"
 
 /***
- * Runs external command
+ * Runs external command for the pipeline (already in fork)
  * @param liste struct for the command
  */
-void process_external_command(cmd_struct liste){
+void process_external_command_pipeline(cmd_struct liste,int r){
     char** args = malloc(sizeof(char*) * (liste.taille_array + 1));
     //Fill args array
     for(int i = 0; i < liste.taille_array; i++){
@@ -13,11 +13,35 @@ void process_external_command(cmd_struct liste){
     }
     args[liste.taille_array] = NULL;
 
-
     execvp(args[0],args);
+    exit(127);
+}
 
-    /*
-    int status, r = fork();
+cmd_struct remove_redirections(cmd_struct liste){
+    char** args=malloc(sizeof(char*)*(liste.taille_array+1));
+    // fill args array until a redirection sign is met to keep only the command
+    int i;
+    for(i=0; i<liste.taille_array; i++){
+        if(strcmp_redirections(*(liste.cmd_array+i))==1){
+            break;
+        }
+        *(args+i)=malloc(sizeof(char)*strlen(*(liste.cmd_array+i))+1);
+        strcpy(*(args+i),*(liste.cmd_array+i));
+    }
+    *(args+i)=NULL;
+    cmd_struct res={.cmd_array=args, .taille_array=i};
+    return res;
+}
+
+/***
+ * Runs external command for the redirection
+ * @param liste struct for the command
+ */
+void process_external_command_redirection(cmd_struct liste){
+    cmd_struct removed=remove_redirections(liste);
+    char** args=removed.cmd_array;
+
+    int status, r=fork();
     if(r == 0){
         defaultSignals();
         execvp(args[0],args);
@@ -28,12 +52,13 @@ void process_external_command(cmd_struct liste){
         errorCode = WEXITSTATUS(status);
         if(WIFSIGNALED(status)) errorCode = -1;
 
-        for(int i = 0; i < liste.taille_array+1; i++){
-            free(args[i]);
+        /*
+        for(int i=0; i<liste.taille_array; i++){
+            free(*(args+i));
         }
         free(args);
+         */
     }
-     */
 }
 
 
@@ -259,13 +284,14 @@ void process_pwd_call(cmd_struct liste){
  * @param liste struct for the command
  */
 void process_exit_call(cmd_struct liste){
-    if(liste.taille_array>2){
+    cmd_struct removed=remove_redirections(liste);
+    if(removed.taille_array>2){
         errno = EINVAL;
         perror("slash: exit");
         errorCode=1;
     }
-    if(liste.taille_array == 2){
-        int exit_value = atoi(*(liste.cmd_array+1));
+    if(removed.taille_array == 2){
+        int exit_value = atoi(*(removed.cmd_array+1));
         exit(exit_value);
     }
     else{

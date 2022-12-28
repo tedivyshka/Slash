@@ -357,9 +357,19 @@ char* supprimer_occurences_slash(const char *s){
     return result;
 }
 
-///////////////////////////////////////////////////
+static int saved[3]={-1,-1,-1};
+static int duped[3]={0,1,2};
 
-void exec_command(cmd_struct list){
+void reset_redi(){
+    for(int i=0; i<3; i++){
+        if(saved[i]!=-1)
+            dup2(saved[i],duped[i]);
+        close(saved[i]);
+        saved[i]=-1;
+    }
+}
+
+void exec_command_redirection(cmd_struct list){
     if(strcmp(*list.cmd_array,"cd")==0){
         process_cd_call(list);
     }
@@ -370,14 +380,39 @@ void exec_command(cmd_struct list){
         process_exit_call(list);
     }
     else{
-        process_external_command(list);
+        process_external_command_redirection(list);
+    }
+    reset_redi();
+}
+
+void exec_command_pipeline(cmd_struct list,int pid){
+    if(pid==0){
+        defaultSignals();
+        if(strcmp(*list.cmd_array,"cd")==0){
+            process_cd_call(list);
+        }
+        else if(strcmp(*list.cmd_array,"pwd")==0){
+            process_pwd_call(list);
+        }
+        else if(strcmp(*list.cmd_array,"exit")==0){
+            process_exit_call(list);
+        }
+        else{
+            process_external_command_pipeline(list,pid);
+        }
+        exit(errorCode);
     }
 }
 
+/**
+ * Compare a string to multiple redirection signs (<,>,>|,>>,2>,2>|,2>>)
+ * @param str the string to compare to
+ * @return boolean: 1=true 0=false
+ */
 int strcmp_redirections(char* str) {
     char *list[] = {"<", ">", ">|", ">>", "2>", "2>|", "2>>"};
 
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < 7; ++i) {
         if (strcmp(list[i], str) == 0) {
             return 1;
         }
@@ -395,21 +430,27 @@ char* in_redir(cmd_struct cmd){
     return "stdin";
 }
 
-char* out_redir(cmd_struct cmd){
+char** out_redir(cmd_struct cmd){
+    char** res= malloc(sizeof(char*)*2);
     for(int i=0;i<cmd.taille_array;i++){
-        if(strcmp(*(cmd.cmd_array+i),">")==0){
+        if((strcmp(*(cmd.cmd_array+i),">")==0 || strcmp(*(cmd.cmd_array+i),">|")==0 || strcmp(*(cmd.cmd_array+i),">>")==0)){
             if(i+1==cmd.taille_array) perror_exit("out redirection");
-            return *(cmd.cmd_array+i+1);
+            //todo malloc avant cpy
+            strcpy(*res,*(cmd.cmd_array+i));
+            strcpy(*(res+1),*(cmd.cmd_array+i+1));
+            return res;
         }
     }
-    return "stdout";
+    *res="stdout";
+    return res;
 }
 
 char** err_redir(cmd_struct cmd){
-    char** res= malloc(sizeof(char*)*2);
+    char** res=malloc(sizeof(char*)*2);
     for(int i=0;i<cmd.taille_array;i++){
-        if(strcmp_redirections(*(cmd.cmd_array+i))==1){
+        if((strcmp(*(cmd.cmd_array+i),"2>")==0 || strcmp(*(cmd.cmd_array+i),"2>|")==0 || strcmp(*(cmd.cmd_array+i),"2>>")==0)){
             if(i+1==cmd.taille_array) perror_exit("stderr redirection");
+            // todo malloc avant cpy
             strcpy(*res,*(cmd.cmd_array+i));
             strcpy(*(res+1),*(cmd.cmd_array+i+1));
             return res;
@@ -479,147 +520,181 @@ cmds_struct separate_redirections(cmd_struct cmd){
     return res;
 }
 
-void redirect(int oldfd,int newfd){
-    if(oldfd!=newfd){
-        if(dup2(oldfd,newfd)!=-1){
-            if(close(oldfd)){
-                perror_exit("close");
-            }
-        }
-        else{
-            perror_exit("dup2");
-        }
-    }
-}
-
 static char* input_redir;
-static char* output_redir;
+static char** output_redir;
+static char** error_redir;
 
-void handle_redirection(cmds_struct cmds){
+void handle_pipe(cmds_struct cmds){
     size_t num_commands=cmds.taille_array;
     input_redir=in_redir(*cmds.cmds_array);
     output_redir=out_redir(*(cmds.cmds_array+num_commands-1));
     int output_fd;
 
-    // Create a pipe for each pair of adjacent commands
-    size_t num_pipes = num_commands-1;
+    // create a pipe for each pair of adjacent commands
+    size_t num_pipes=num_commands-1;
     int pipes[num_pipes][2];
-    for (int i = 0; i < num_pipes; i++) {
-        if (pipe(pipes[i]) < 0) {
-            perror("pipe");
-            exit(1);
+    for (int i=0; i<num_pipes; i++) {
+        if (pipe(pipes[i])<0) {
+            perror_exit("pipe");
         }
     }
 
-    // Create a child process for each command
+    // create a child process for each command
     pid_t child_pids[num_commands];
-    for (int i = 0; i < num_commands; i++) {
-        child_pids[i] = fork();
-        if (child_pids[i] < 0) {
-            perror("fork");
-            exit(1);
+    for (int i=0; i<num_commands; i++) {
+        child_pids[i]=fork();
+        if (child_pids[i]<0) {
+            perror_exit("fork");
         }
+        if(child_pids[i]==0) break;
     }
 
-    // Set up the pipeline and redirections in the child processes
-    for (int i = 0; i < num_commands; i++) {
-        if (child_pids[i] == 0) {
-            // Redirect standard input and standard output as appropriate
-            if (i == 0){
+    // set up the pipeline and redirections in the child processes
+    for (int i=0; i<num_commands; i++) {
+        if (child_pids[i]==0) {
+            // redirect standard input
+            if (i==0){
                 if(strcmp(input_redir,"stdin")==1) {
-                    // Redirect standard input from a file
-                    int input_fd = open(input_redir, O_RDONLY);
-                    if (input_fd < 0) perror_exit("open");
-                    dup2(input_fd, STDIN_FILENO);
+                    // redirect standard input from a file
+                    int input_fd=open(input_redir,O_RDONLY);
+                    if (input_fd<0){
+                        perror_exit("open");
+                    }
+                    dup2(input_fd,STDIN_FILENO);
                     close(input_fd);
                 }
             }
-            else if (i > 0) {
-                dup2(pipes[i - 1][0], STDIN_FILENO);
+            else if (i>0) {
+                dup2(pipes[i-1][0],STDIN_FILENO);
             }
-            if (i < num_commands - 1) {
-                if(strcmp(output_redir,"stdout")==1){
-                    output_fd = open(output_redir, O_WRONLY);
-                    if (output_fd< 0) perror_exit("open");
-                    dup2(pipes[i][1], output_fd);
+            if (i<num_commands-1) {
+                dup2(pipes[i][1],STDOUT_FILENO);
+            }
+            // redirect standard output
+            else if(strcmp(*output_redir,"stdout")==1){
+                // redirect standard output to a file
+                output_fd = open(*(output_redir+1), O_WRONLY | O_CREAT | O_TRUNC);
+                if (output_fd<0) {
+                    perror_exit("open");
                 }
-                else{
-                    dup2(pipes[i][1], STDOUT_FILENO);
-                    close(pipes[i][1]);
-                }
+                dup2(output_fd,STDOUT_FILENO);
+                close(output_fd);
             }
 
-            // Close all unnecessary pipe ends
-            for (int j = 0; j < num_pipes; j++) {
+            // close all unnecessary pipe ends
+            for (int j=0; j<num_pipes; j++) {
                 close(pipes[j][0]);
                 close(pipes[j][1]);
             }
 
-            // Execute the command
-            dprintf(STDERR_FILENO,"%s\n",(*(cmds.cmds_array+i)->cmd_array));
-            exec_command(*(cmds.cmds_array+i));
-            //execvp(*((cmds.cmds_array+i)->cmd_array),(cmds.cmds_array+i)->cmd_array);
+            // execute the command
+            //dprintf(STDERR_FILENO,"%s\n",*((cmds.cmds_array+i)->cmd_array));
+            exec_command_pipeline(*(cmds.cmds_array+i),child_pids[i]);
             perror_exit("execvp");
         }
     }
-    close(output_fd);
 
-    // Close all unnecessary pipe ends in the parent process
-    for (int i = 0; i < num_pipes; i++) {
+    // close all unnecessary pipe ends in the parent process
+    for (int i=0; i<num_pipes; i++) {
         close(pipes[i][0]);
         close(pipes[i][1]);
     }
 
-    // Wait for all child processes to complete
-    for (int i = 0; i < num_commands; i++) {
+    // wait for all child processes to complete
+    for (int i=0; i<num_commands; i++) {
         int status;
         waitpid(child_pids[i], &status, 0);
+        errorCode = WEXITSTATUS(status);
+        if(strcmp(*((cmds.cmds_array+i)->cmd_array),"exit")==0){
+            exit(errorCode);
+        }
+        if(errorCode==1) break;
+        if(WIFSIGNALED(status)) errorCode = -1;
     }
 }
 
 
-void handle_pipeline(cmds_struct list,size_t idx,int fd_in){
-    if(idx==list.taille_array-1){
-        redirect(fd_in,STDIN_FILENO);
-        exec_command(*(list.cmds_array+idx));
-        //perror_exit("exec last arg");
-    }
-    else{
-        int fd[2];
-        if(pipe(fd)==-1){
-            perror_exit("pipe");
+
+
+void handle_redirection(cmd_struct cmd){
+    char** line=cmd.cmd_array;
+    int in_flags=O_RDONLY;
+    int out_flags=O_WRONLY;
+    int err_flags=O_WRONLY;
+
+    int i=0;
+    while(i<cmd.taille_array){
+        // input redirection
+        if(strcmp(*(line+i),"<")==0){
+            i++;
+            int in_fd=open(*(line+i),in_flags, S_IRUSR);
+            if(in_fd<0) perror_exit("open");
+            saved[0]=dup(0);
+            if(dup2(in_fd,STDIN_FILENO)<0) perror_exit("dup2");
+            if(close(in_fd)<0) perror_exit("close");
         }
-        switch (fork()) {
-            case -1:
-                perror_exit("fork");
-            case 0: // child
-                close(fd[0]);
-                redirect(fd_in,STDIN_FILENO);
-                redirect(fd[1],STDOUT_FILENO);
-                exec_command(*(list.cmds_array+idx));
-                //perror_exit("exec child");
-            default: // parent
-                close(fd[1]);
-                close(fd_in);
-                handle_pipeline(list,idx+2,fd[0]);
+        // output redirection
+        else if(strcmp(*(line+i),">")==0 || strcmp(*(line+i),">|")==0 || strcmp(*(line+i),">>")==0){
+            if(strcmp(*(line+i),">")==0){
+                //out_flags|=O_CREAT | O_EXCL;
+                out_flags=O_RDWR | O_CREAT | O_EXCL;
+            }
+            else if(strcmp(*(line+i),">>")==0){
+                //out_flags|=O_CREAT | O_APPEND;
+                out_flags=O_RDWR | O_CREAT | O_APPEND;
+            }
+            else if(strcmp(*(line+i),">|")==0){
+                //out_flags|=O_TRUNC;
+                out_flags=O_RDWR | O_TRUNC;
+            }
+            i++;
+            int out_fd=open(*(line+i),out_flags, S_IRUSR | S_IWUSR);
+            if(out_fd<0) perror_exit("open");
+            saved[1]=dup(1);
+            if(dup2(out_fd,STDOUT_FILENO)<0) perror_exit("dup2");
+            if(close(out_fd)<0) perror_exit("close");
         }
+        // error redirection
+        else if(strcmp(*(line+i),"2>")==0 || strcmp(*(line+i),"2>|")==0 || strcmp(*(line+i),"2>>")==0){
+            if(strcmp(*(line+i),"2>")==0){
+                //err_flags|=O_CREAT | O_EXCL;
+                err_flags=O_RDWR | O_CREAT | O_EXCL;
+            }
+            else if(strcmp(*(line+i),"2>>")==0){
+                err_flags=O_CREAT | O_RDWR | O_APPEND;
+                //err_flags|=O_CREAT | O_EXCL;
+            }
+            else if(strcmp(*(line+i),"2>|")==0){
+                //err_flags|=O_TRUNC;
+                err_flags=O_RDWR | O_TRUNC;
+            }
+            i++;
+            int err_fd=open(*(line+i),err_flags,0644);
+            if(err_fd<0) perror_exit("open");
+            saved[2]=dup(2);
+            if(dup2(err_fd,STDERR_FILENO)<0) perror_exit("dup2");
+            if(close(err_fd)<0) perror_exit("close");
+        }
+        i++;
     }
 }
+
 /***
  * Interprets the commands to call the corresponding functions.
  * @param liste struct for the command
  */
 void interpreter_new(cmd_struct list) {
     cmds_struct separated_list=separate_redirections(list);
-    if(separated_list.taille_array%2==0){
+    if(separated_list.taille_array>1){
+        handle_pipe(separated_list);
     }
-    handle_redirection(separated_list);
-    //interpreter_aux(separated_list);
-    //handle_pipeline(separated_list,0,STDIN_FILENO);
+    else{
+        handle_redirection(*separated_list.cmds_array);
+        exec_command_redirection(*separated_list.cmds_array);
+    }
 }
 
-//////////////////////////////////////////////////////////////////
-
+/*
 void interpreter(cmd_struct list) {
     if (strcmp(*list.cmd_array, "cd") == 0) {
         process_cd_call(list);
@@ -631,9 +706,10 @@ void interpreter(cmd_struct list) {
         process_exit_call(list);
     }
     else {
-        process_external_command(list);
+        process_external_command(list,0);
     }
 }
+*/
 
 
 void joker_solo_asterisk(cmd_struct liste){
@@ -698,7 +774,7 @@ cmd_struct lexer(char* ligne){
     size_t taille_array=0;
     *taille_array_init=1;
 
-    // take each string separated by a space and copy it into a list of String
+    // take each string separated by a space and copy it into a list of strings
     token=strtok(ligne," ");
     do{
         taille_token=strlen(token);

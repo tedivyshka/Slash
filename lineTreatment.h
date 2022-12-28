@@ -17,4 +17,11 @@ cmd_struct lexer(char* ligne);
 
 void joker_solo_asterisk(cmd_struct liste);
 
+/**
+ * Compare a string to multiple redirection signs (<,>,>|,>>,2>,2>|,2>>)
+ * @param str the string to compare to
+ * @return boolean: 1=true 0=false
+ */
+int strcmp_redirections(char* str);
+
 #endif //SLASH_LINETREATMENT_H

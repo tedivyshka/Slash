@@ -3,6 +3,7 @@
 
 #include "utilities.h"
 #include "signal.h"
+#include "lineTreatment.h"
 #include <errno.h>
 
 /***
@@ -26,9 +27,18 @@ void process_pwd_call(cmd_struct liste);
 void process_exit_call(cmd_struct liste);
 
 /***
- * Runs external command
+ * Runs external command for the pipeline (already in fork)
  * @param liste struct for the command
  */
-void process_external_command(cmd_struct liste);
+void process_external_command_pipeline(cmd_struct liste,int pid);
+
+/***
+ * Runs external command for the redirection
+ * @param liste struct for the command
+ */
+void process_external_command_redirection(cmd_struct liste);
+
+
+cmd_struct remove_redirections(cmd_struct liste);
 
 #endif //SLASH_COMMANDS_H
