@@ -661,7 +661,7 @@ void handle_redirection(cmd_struct cmd){
         // input redirection
         if(strcmp(*(line+i),"<")==0){
             i++;
-            int in_fd=open(*(line+i),in_flags, S_IRUSR);
+            int in_fd=open(*(line+i),in_flags,0666);
             if(in_fd<0){
                 errorCode=1;
                 return;
@@ -698,18 +698,18 @@ void handle_redirection(cmd_struct cmd){
         else if(strcmp(*(line+i),"2>")==0 || strcmp(*(line+i),"2>|")==0 || strcmp(*(line+i),"2>>")==0){
             if(strcmp(*(line+i),"2>")==0){
                 //err_flags|=O_CREAT | O_EXCL;
-                err_flags=O_RDWR | O_CREAT | O_EXCL;
+                err_flags=O_WRONLY | O_CREAT | O_EXCL;
             }
             else if(strcmp(*(line+i),"2>>")==0){
-                err_flags=O_CREAT | O_RDWR | O_APPEND;
+                err_flags=O_WRONLY | O_CREAT | O_APPEND;
                 //err_flags|=O_CREAT | O_EXCL;
             }
             else if(strcmp(*(line+i),"2>|")==0){
                 //err_flags|=O_TRUNC;
-                err_flags=O_RDWR | O_TRUNC;
+                err_flags=O_WRONLY | O_CREAT | O_TRUNC;
             }
             i++;
-            int err_fd=open(*(line+i),err_flags,0644);
+            int err_fd=open(*(line+i),err_flags,0666);
             if(err_fd<0){
                 errorCode=1;
                 return;
