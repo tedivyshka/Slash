@@ -726,6 +726,7 @@ void handle_redirection_extern(cmd_struct cmd){
     int out_flags;
     int err_flags;
 
+    fflush(stdout);
     pid_t pid=fork();
 
     if(pid==-1){
@@ -801,6 +802,7 @@ void handle_redirection_extern(cmd_struct cmd){
         int status;
         wait(&status);
         errorCode = WEXITSTATUS(status);
+        if(WIFSIGNALED(status)) errorCode = -1;
     }
 }
 
