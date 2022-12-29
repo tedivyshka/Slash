@@ -1,9 +1,7 @@
 #include "lineTreatment.h"
+#include "pipeline.h"
+#include "redirection.h"
 
-void perror_exit(char* msg){
-    perror(msg);
-    exit(1);
-}
 
 /*todo Pour éviter d'éventuels débordements (notamment lors de l'expansion des jokers),
  * on pourra limiter le nombre et la taille des arguments autorisés sur une ligne de commande slash :
@@ -357,79 +355,6 @@ char* supprimer_occurences_slash(const char *s){
     return result;
 }
 
-static int saved[3]={-1,-1,-1};
-static int duped[3]={0,1,2};
-
-void reset_redi(){
-    for(int i=0; i<3; i++){
-        if(saved[i]!=-1)
-            dup2(saved[i],duped[i]);
-        close(saved[i]);
-        saved[i]=-1;
-    }
-}
-
-void exec_command_redirection(cmd_struct list){
-    //dprintf(STDERR_FILENO,"dans redi intern");
-    if(strcmp(*list.cmd_array,"cd")==0){
-        process_cd_call(list);
-    }
-    else if(strcmp(*list.cmd_array,"pwd")==0){
-        process_pwd_call(list);
-    }
-    else{
-        process_exit_call(list);
-    }
-    fflush(stdout);
-    reset_redi();
-}
-
-void exec_command_extern(cmd_struct list,pid_t pid){
-    defaultSignals();
-    process_external_command_pipeline(list,pid);
-    exit(errorCode);
-}
-
-void exec_command_pipeline(cmd_struct list,pid_t pid){
-    //dprintf(STDERR_FILENO,"dans redi extern ou pipe");
-    if(pid==0){
-        defaultSignals();
-        if(strcmp(*list.cmd_array,"cd")==0){
-            process_cd_call(list);
-        }
-        else if(strcmp(*list.cmd_array,"pwd")==0){
-            process_pwd_call(list);
-        }
-        else if(strcmp(*list.cmd_array,"exit")==0){
-            process_exit_call(list);
-        }
-        else{
-            process_external_command_pipeline(list,pid);
-        }
-        exit(errorCode);
-    }
-}
-
-void printListe(cmd_struct liste) {
-    int count=0;
-    int countString=0;
-    char* string=*liste.cmd_array;
-    char c;
-    while(count!=liste.taille_array){
-        c=*(string+countString);
-        while(c!=EOF && c!='\0'){
-            dprintf(STDERR_FILENO,"%d : %c\n",count,c);
-            countString++;
-            c=*(string+countString);
-        }
-        dprintf(STDERR_FILENO,"\n");
-        countString=0;
-        count++;
-        string=*(liste.cmd_array+count);
-    }
-}
-
-
 /**
  * Compare a string to multiple redirection signs (<,>,>|,>>,2>,2>|,2>>)
  * @param str the string to compare to
@@ -446,88 +371,44 @@ int strcmp_redirections(char* str) {
     return 0;
 }
 
-char* in_redir(cmd_struct cmd){
-    for(int i=0;i<cmd.taille_array;i++){
-        if(strcmp(*(cmd.cmd_array+i),"<")==0){
-            if(i+1==cmd.taille_array) perror_exit("input redirection");
-            return *(cmd.cmd_array+i+1);
+size_t pipes_quantity(cmd_struct cmd){
+    size_t pipes=0;
+    for(int i=0; i<cmd.taille_array; ++i){
+        if(strcmp(*(cmd.cmd_array+i),"|")==0){
+            pipes++;
         }
     }
-    return "";
+    return pipes;
 }
-
-char** out_redir(cmd_struct cmd){
-    char** res= malloc(sizeof(char*)*2);
-    for(int i=0;i<cmd.taille_array;i++){
-        if((strcmp(*(cmd.cmd_array+i),">")==0 || strcmp(*(cmd.cmd_array+i),">|")==0 || strcmp(*(cmd.cmd_array+i),">>")==0)){
-            if(i+1==cmd.taille_array) perror_exit("out redirection");
-            *res=malloc(sizeof(char)*strlen(*(cmd.cmd_array+i))+1);
-            *(res+1)=malloc(sizeof(char)*strlen(*(cmd.cmd_array+i+1))+1);
-            strcpy(*res,*(cmd.cmd_array+i));
-            strcpy(*(res+1),*(cmd.cmd_array+i+1));
-            return res;
-        }
-    }
-    *res="";
-    return res;
-}
-
-char** err_redir(cmd_struct cmd){
-    char** res=malloc(sizeof(char*)*2);
-    for(int i=0;i<cmd.taille_array;i++){
-        if((strcmp(*(cmd.cmd_array+i),"2>")==0 || strcmp(*(cmd.cmd_array+i),"2>|")==0 || strcmp(*(cmd.cmd_array+i),"2>>")==0)){
-            if(i+1==cmd.taille_array) perror_exit("stderr redirection");
-            *res=malloc(sizeof(char)*strlen(*(cmd.cmd_array+i))+1);
-            *(res+1)=malloc(sizeof(char)*strlen(*(cmd.cmd_array+i+1))+1);
-            strcpy(*res,*(cmd.cmd_array+i));
-            strcpy(*(res+1),*(cmd.cmd_array+i+1));
-            return res;
-        }
-    }
-    *res="";
-    return res;
-}
-
-static size_t pipes_quantity=0;
 
 /**
  * Creates a cmds_struct with the commands separated by the redirection symbols.
- * exemple : [0] "ls -l | wc -l" -> [0] "ls -l" [0] "|" [0] "wc -l"
- * avec chaque correspondant à [0] un tableau différent
+ * example : [0] "ls -l | wc -l" -> [0] "ls -l" [0] "|" [0] "wc -l"
+ * with each [] a new array
  * @param cmd the struct with an array of strings of the command line
  * @return cmds_struct with the commands separated
  */
 cmds_struct separate_redirections(cmd_struct cmd){
     cmds_struct res;
     res.taille_array=0;
-    cmd_struct* cmds_array=malloc(sizeof(cmd_struct)*MAX_ARGS_NUMBER);
+    size_t pipes=pipes_quantity(cmd);
+    cmd_struct* cmds_array=malloc(sizeof(cmd_struct)*(pipes+1));
 
+    // count of the strings in cmd
     int string_count=0;
+    // count of the strings on the last array of res
     int string_count_cmds=0;
     // index of the last copied string
     int size_tmp=0;
     while(string_count<cmd.taille_array){
         // when the current string is a redirection symbol
         if(strcmp(*(cmd.cmd_array+string_count),"|")==0){
-            pipes_quantity++;
             // copy all strings before the symbol in one array
-            (cmds_array+res.taille_array)->cmd_array=malloc(sizeof(char*)*string_count_cmds+1);
-            testMalloc((cmds_array+res.taille_array)->cmd_array);
-            memcpy((cmds_array+res.taille_array)->cmd_array,(cmd.cmd_array+size_tmp),sizeof(char*)*(string_count_cmds+1));
+            (cmds_array+res.taille_array)->cmd_array=copyNStringArray((cmd.cmd_array+size_tmp),string_count_cmds);
             size_tmp+=string_count_cmds;
             (cmds_array+res.taille_array)->taille_array=string_count_cmds;
 
             res.taille_array++;
-            /*
-            // copy the symbol in the next array
-            (cmds_array+res.taille_array+1)->cmd_array=malloc(sizeof(char*)*4);
-            testMalloc((cmds_array+res.taille_array+1)->cmd_array);
-            memcpy((cmds_array+res.taille_array+1)->cmd_array,(cmd.cmd_array+size_tmp),sizeof(char*)*(4));
-            (cmds_array+res.taille_array+1)->taille_array=1;
-            size_tmp+=1;
-
-            res.taille_array+=2;
-            */
             size_tmp+=1;
             string_count_cmds=0;
         }
@@ -538,348 +419,28 @@ cmds_struct separate_redirections(cmd_struct cmd){
     }
 
     // copy either the last part of the string or the string without redirections
-    (cmds_array+res.taille_array)->cmd_array=malloc(sizeof(char*)*(string_count_cmds+1));
-    testMalloc((cmds_array+res.taille_array)->cmd_array);
-    memcpy((cmds_array+res.taille_array)->cmd_array,(cmd.cmd_array+size_tmp),sizeof(char*)*(string_count_cmds+1));
+    (cmds_array+res.taille_array)->cmd_array=copyNStringArray((cmd.cmd_array+size_tmp),string_count_cmds);
     (cmds_array+res.taille_array)->taille_array=string_count_cmds;
-    res.taille_array+=1;
-    cmds_array=realloc(cmds_array,sizeof(cmd_struct)*res.taille_array);
+    res.taille_array++;
     res.cmds_array=cmds_array;
     return res;
-}
-
-static char* input_redir;
-static char** output_redir;
-static char** error_redir;
-
-void handle_pipe(cmds_struct cmds){
-    size_t num_commands=cmds.taille_array;
-    input_redir=in_redir(*cmds.cmds_array);
-    output_redir=out_redir(*(cmds.cmds_array+num_commands-1));
-    int output_fd;
-    int error_fd;
-
-    // create a pipe for each pair of adjacent commands
-    size_t num_pipes=num_commands-1;
-    int pipes[num_pipes][2];
-    for (int i=0; i<num_pipes; i++) {
-        if (pipe(pipes[i])<0) {
-            perror_exit("pipe");
-        }
-    }
-
-    // create a child process for each command
-    pid_t child_pids[num_commands];
-    for (int i=0; i<num_commands; i++) {
-        child_pids[i]=fork();
-        if (child_pids[i]<0) {
-            perror_exit("fork");
-        }
-        if(child_pids[i]==0) break;
-    }
-
-    // set up the pipeline and redirections in the child processes
-    for (int i=0; i<num_commands; i++) {
-        if (child_pids[i]==0) {
-            // redirect standard input
-            if (i==0){
-                if(strcmp(input_redir,"")!=0) {
-                    // redirect standard input from a file
-                    int input_fd=open(input_redir,O_RDONLY, 0666);
-                    if (input_fd<0){
-                        perror_exit("open");
-                    }
-                    dup2(input_fd,STDIN_FILENO);
-                    close(input_fd);
-                }
-            }
-            else if (i>0) {
-                dup2(pipes[i-1][0],STDIN_FILENO);
-            }
-            if (i<num_commands-1) {
-                dup2(pipes[i][1],STDOUT_FILENO);
-            }
-            // redirect standard output
-            else if(strcmp(*output_redir,"")!=0){
-                // redirect standard output to a file
-                if(strcmp(*output_redir,">") == 0){
-                  output_fd = open(*(output_redir+1), O_WRONLY | O_CREAT | O_EXCL, 0666);
-                }
-                else if(strcmp(*output_redir,">>") == 0){
-                  output_fd = open(*(output_redir+1), O_WRONLY | O_CREAT | O_APPEND, 0666);
-                }
-                else if(strcmp(*output_redir,">|") == 0){
-                  output_fd = open(*(output_redir+1), O_WRONLY | O_CREAT | O_TRUNC, 0666);
-                }
-
-                if (output_fd<0) {
-                    perror_exit("open");
-                }
-                dup2(output_fd,STDOUT_FILENO);
-                close(output_fd);
-            }
-
-            //redirect error output
-            error_redir=err_redir((*(cmds.cmds_array+i)));
-            if(strcmp(*error_redir,"")!=0){
-                // redirect error output to a file
-                if(strcmp(*error_redir,"2>")==0){
-                    //dprintf(STDERR_FILENO,"%s\n",*(error_redir));
-                    //dprintf(STDERR_FILENO,"%s\n",*(error_redir+1));
-                    error_fd=open(*(error_redir+1),O_WRONLY | O_CREAT | O_EXCL,0666);
-                }
-                else if(strcmp(*error_redir,"2>>")==0){
-                    error_fd=open(*(error_redir+1),O_WRONLY | O_CREAT | O_APPEND,0666);
-                }
-                else if(strcmp(*error_redir,"2>|")==0){
-                    error_fd=open(*(error_redir+1),O_WRONLY | O_CREAT | O_TRUNC,0666);
-                }
-                if(error_fd<0){
-                    perror_exit("open");
-                }
-                dup2(error_fd,STDERR_FILENO);
-                close(error_fd);
-            }
-
-            // close all unnecessary pipe ends
-            for (int j=0; j<num_pipes; j++) {
-                close(pipes[j][0]);
-                close(pipes[j][1]);
-            }
-
-            // execute the command
-            cmd_struct removed_cmd=remove_redirections(*(cmds.cmds_array+i));
-            exec_command_pipeline(removed_cmd,child_pids[i]);
-            perror_exit("execvp");
-        }
-    }
-
-    // close all unnecessary pipe ends in the parent process
-    for (int i=0; i<num_pipes; i++) {
-        close(pipes[i][0]);
-        close(pipes[i][1]);
-    }
-
-    // wait for all child processes to complete
-    for (int i=0; i<num_commands; i++) {
-        int status;
-        waitpid(child_pids[i], &status, 0);
-        errorCode = WEXITSTATUS(status);
-        if(strcmp(*((cmds.cmds_array+i)->cmd_array),"exit")==0){
-            exit(errorCode);
-        }
-        if(errorCode==1) break;
-        if(WIFSIGNALED(status)) errorCode = -1;
-    }
-}
-
-void handle_redirection_intern(cmd_struct cmd){
-    char** line=cmd.cmd_array;
-    int in_flags=O_RDONLY;
-    int out_flags;
-    int err_flags;
-
-    //dprintf(STDERR_FILENO,"dans intern hors d'un fork: %d",getpid());
-
-    int i=0;
-    while(i<cmd.taille_array){
-        // input redirection
-        if(strcmp(*(line+i),"<")==0){
-            i++;
-            int in_fd=open(*(line+i),in_flags,0666);
-            if(in_fd<0){
-                errorCode=1;
-                return;
-            }
-            saved[0]=dup(0);
-            if(dup2(in_fd,STDIN_FILENO)<0) perror_exit("dup2");
-            if(close(in_fd)<0) perror_exit("close");
-        }
-        // output redirection
-        else if(strcmp(*(line+i),">")==0 || strcmp(*(line+i),">|")==0 || strcmp(*(line+i),">>")==0){
-            if(strcmp(*(line+i),">")==0){
-                //out_flags|=O_CREAT | O_EXCL;
-                out_flags=O_WRONLY | O_CREAT | O_EXCL;
-            }
-            else if(strcmp(*(line+i),">>")==0){
-                //out_flags|=O_CREAT | O_APPEND;
-                out_flags=O_WRONLY | O_CREAT | O_APPEND;
-            }
-            else if(strcmp(*(line+i),">|")==0){
-                //out_flags|=O_TRUNC;
-                out_flags=O_WRONLY | O_CREAT | O_TRUNC;
-            }
-            i++;
-            int out_fd=open(*(line+i),out_flags, 0666);
-            if(out_fd<0){
-                errorCode=1;
-                return;
-            }
-            saved[1]=dup(1);
-            if(dup2(out_fd,STDOUT_FILENO)<0) perror_exit("dup2");
-            if(close(out_fd)<0) perror_exit("close");
-        }
-        // error redirection
-        else if(strcmp(*(line+i),"2>")==0 || strcmp(*(line+i),"2>|")==0 || strcmp(*(line+i),"2>>")==0){
-            if(strcmp(*(line+i),"2>")==0){
-                //err_flags|=O_CREAT | O_EXCL;
-                err_flags=O_WRONLY | O_CREAT | O_EXCL;
-            }
-            else if(strcmp(*(line+i),"2>>")==0){
-                err_flags=O_WRONLY | O_CREAT | O_APPEND;
-                //err_flags|=O_CREAT | O_EXCL;
-            }
-            else if(strcmp(*(line+i),"2>|")==0){
-                //err_flags|=O_TRUNC;
-                err_flags=O_WRONLY | O_CREAT | O_TRUNC;
-            }
-            i++;
-            int err_fd=open(*(line+i),err_flags,0666);
-            if(err_fd<0){
-                errorCode=1;
-                return;
-            }
-            saved[2]=dup(2);
-            if(dup2(err_fd,STDERR_FILENO)<0) perror_exit("dup2");
-            if(close(err_fd)<0) perror_exit("close");
-        }
-        i++;
-    }
-    exec_command_redirection(cmd);
-}
-
-void handle_redirection_extern(cmd_struct cmd){
-    char** line=cmd.cmd_array;
-    int in_flags=O_RDONLY;
-    int out_flags;
-    int err_flags;
-
-    fflush(stdout);
-    pid_t pid=fork();
-
-    if(pid==-1){
-        perror_exit("fork");
-    }
-    else if(pid==0){
-        //dprintf(STDERR_FILENO,"dans extern fils: %d\n",getpid());
-        for(int i=0; i<cmd.taille_array; ++i){
-            // input redirection
-            if(strcmp(*(line+i),"<")==0){
-                i++;
-                int in_fd=open(*(line+i),in_flags,0666);
-                if(in_fd<0){
-                    errorCode=1;
-                    return;
-                }
-                saved[0]=dup(0);
-                if(dup2(in_fd,STDIN_FILENO)<0) perror_exit("dup2");
-                if(close(in_fd)<0) perror_exit("close");
-            }
-                // output redirection
-            else if(strcmp(*(line+i),">")==0 || strcmp(*(line+i),">|")==0 || strcmp(*(line+i),">>")==0){
-                if(strcmp(*(line+i),">")==0){
-                    //out_flags|=O_CREAT | O_EXCL;
-                    out_flags=O_WRONLY | O_CREAT | O_EXCL;
-                }
-                else if(strcmp(*(line+i),">>")==0){
-                    //out_flags|=O_CREAT | O_APPEND;
-                    out_flags=O_WRONLY | O_CREAT | O_APPEND;
-                }
-                else if(strcmp(*(line+i),">|")==0){
-                    //out_flags|=O_TRUNC;
-                    out_flags=O_WRONLY | O_CREAT | O_TRUNC;
-                }
-                i++;
-                int out_fd=open(*(line+i),out_flags, 0666);
-                if(out_fd<0){
-                    if(strcmp(*(line+i-1),">")==0){
-                        perror_exit(">");
-                    }
-                    errorCode=1;
-                    return;
-                }
-                saved[1]=dup(1);
-                if(dup2(out_fd,STDOUT_FILENO)<0) perror_exit("dup2");
-                if(close(out_fd)<0) perror_exit("close");
-            }
-                // error redirection
-            else if(strcmp(*(line+i),"2>")==0 || strcmp(*(line+i),"2>|")==0 || strcmp(*(line+i),"2>>")==0){
-                if(strcmp(*(line+i),"2>")==0){
-                    //err_flags|=O_CREAT | O_EXCL;
-                    err_flags=O_WRONLY | O_CREAT | O_EXCL;
-                }
-                else if(strcmp(*(line+i),"2>>")==0){
-                    err_flags=O_WRONLY | O_CREAT | O_APPEND;
-                    //err_flags|=O_CREAT | O_EXCL;
-                }
-                else if(strcmp(*(line+i),"2>|")==0){
-                    //err_flags|=O_TRUNC;
-                    err_flags=O_WRONLY | O_CREAT | O_TRUNC;
-                }
-                i++;
-                int err_fd=open(*(line+i),err_flags,0666);
-                if(err_fd<0){
-                    if(strcmp(*(line+i-1),"2>")==0){
-                        perror_exit("2>");
-                    }
-                    errorCode=1;
-                    return;
-                }
-                saved[2]=dup(2);
-                if(dup2(err_fd,STDERR_FILENO)<0) perror_exit("dup2");
-                if(close(err_fd)<0) perror_exit("close");
-            }
-        }
-        cmd_struct removed_cmd=remove_redirections(cmd);
-        exec_command_extern(removed_cmd,pid);
-        perror_exit("execvp");
-    }
-    else{
-        //dprintf(STDERR_FILENO,"pid fils : %d\n",pid);
-        //dprintf(STDERR_FILENO,"dans extern père: %d\n",getpid());
-        reset_redi();
-        int status;
-        waitpid(pid,&status,0);
-        //dprintf(STDERR_FILENO,"FILS TERMINE %d\n",pid);
-        errorCode = WEXITSTATUS(status);
-        if(WIFSIGNALED(status)) errorCode = -1;
-    }
 }
 
 /***
  * Interprets the commands to call the corresponding functions.
  * @param liste struct for the command
  */
-void interpreter_new(cmd_struct list) {
-    cmds_struct separated_list=separate_redirections(list);
+void interpreter(char* first_command,cmds_struct separated_list) {
     if(separated_list.taille_array>1){
         handle_pipe(separated_list);
     }
-    else if(strcmp(*list.cmd_array,"cd")==0 || strcmp(*list.cmd_array,"pwd")==0 || strcmp(*list.cmd_array,"exit")==0){
+    else if(strcmp(first_command,"cd")==0 || strcmp(first_command,"pwd")==0 || strcmp(first_command,"exit")==0){
         handle_redirection_intern(*separated_list.cmds_array);
     }
     else{
         handle_redirection_extern(*separated_list.cmds_array);
     }
 }
-
-/*
-void interpreter(cmd_struct list) {
-    if (strcmp(*list.cmd_array, "cd") == 0) {
-        process_cd_call(list);
-    }
-    else if (strcmp(*list.cmd_array, "pwd") == 0) {
-        process_pwd_call(list);
-    }
-    else if (strcmp(*list.cmd_array, "exit") == 0) {
-        process_exit_call(list);
-    }
-    else {
-        process_external_command(list,0);
-    }
-}
-*/
-
 
 void joker_solo_asterisk(cmd_struct liste){
     //printf("joker_solo_asterisk \n");
@@ -919,7 +480,10 @@ void joker_solo_asterisk(cmd_struct liste){
     while(args[tailleArray] != NULL) tailleArray ++;
     new_liste.taille_array = tailleArray;
     new_liste.cmd_array = args;
-    interpreter_new(new_liste);
+
+    cmds_struct separated_list=separate_redirections(new_liste);
+    interpreter(*new_liste.cmd_array,separated_list);
+    freeCmdsArray(separated_list);
     freeCmdArray(new_liste);
 }
 
@@ -947,7 +511,6 @@ cmd_struct lexer(char* ligne){
     token=strtok(ligne," ");
     do{
         taille_token=strlen(token);
-        //todo test taille token
         if(taille_token>=MAX_ARGS_NUMBER){
             perror("MAX_ARGS_STRLEN REACHED");
             exit(1);
