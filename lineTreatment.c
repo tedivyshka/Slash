@@ -343,6 +343,11 @@ size_t pipes_quantity(cmd_struct cmd){
     size_t pipes=0;
     for(int i=0; i<cmd.taille_array; ++i){
         if(strcmp(*(cmd.cmd_array+i),"|")==0){
+            // handle the error where a pipe is the last argument
+            if(i==cmd.taille_array-1){
+                syntax_error=1;
+                errorCode=2;
+            }
             pipes++;
         }
     }
@@ -356,7 +361,7 @@ size_t pipes_quantity(cmd_struct cmd){
  * @param cmd the struct with an array of strings of the command line
  * @return cmds_struct with the commands separated
  */
-cmds_struct separate_redirections(cmd_struct cmd){
+cmds_struct separate_pipes(cmd_struct cmd){
     cmds_struct res;
     res.taille_array=0;
     size_t pipes=pipes_quantity(cmd);
@@ -371,10 +376,21 @@ cmds_struct separate_redirections(cmd_struct cmd){
     while(string_count<cmd.taille_array){
         // when the current string is a redirection symbol
         if(strcmp(*(cmd.cmd_array+string_count),"|")==0){
+            // if there's two pipes next to each other, put an empty string
+            if(string_count==size_tmp){
+                (cmds_array+res.taille_array)->cmd_array=malloc(sizeof(char*));
+                *(cmds_array+res.taille_array)->cmd_array=malloc(sizeof(char));
+                cmds_array[res.taille_array].cmd_array[0][0]='\0';
+                (cmds_array+res.taille_array)->taille_array=1;
+                syntax_error=1;
+                errorCode=2;
+            }
             // copy all strings before the symbol in one array
-            (cmds_array+res.taille_array)->cmd_array=copyNStringArray((cmd.cmd_array+size_tmp),string_count_cmds);
-            size_tmp+=string_count_cmds;
-            (cmds_array+res.taille_array)->taille_array=string_count_cmds;
+            else{
+                (cmds_array+res.taille_array)->cmd_array=copyNStringArray((cmd.cmd_array+size_tmp),string_count_cmds);
+                size_tmp+=string_count_cmds;
+                (cmds_array+res.taille_array)->taille_array=string_count_cmds;
+            }
 
             res.taille_array++;
             size_tmp+=1;
@@ -394,23 +410,58 @@ cmds_struct separate_redirections(cmd_struct cmd){
     return res;
 }
 
-/***
+/**
  * Interprets the commands to call the corresponding functions.
  * @param liste struct for the command
  */
 void interpreter(char* first_command,cmds_struct separated_list) {
-    if(separated_list.taille_array>1){
-        handle_pipe(separated_list);
-    }
-    else if(strcmp(first_command,"cd")==0 || strcmp(first_command,"pwd")==0 || strcmp(first_command,"exit")==0){
-        handle_redirection_intern(*separated_list.cmds_array);
+    if(syntax_error==1){
+        dprintf(STDERR_FILENO,"slash: syntax error\n");
     }
     else{
-        handle_redirection_extern(*separated_list.cmds_array);
+        if(separated_list.taille_array>1){
+            handle_pipe(separated_list);
+        }
+        else if(strcmp(first_command,"cd")==0 || strcmp(first_command,"pwd")==0 || strcmp(first_command,"exit")==0){
+            handle_redirection_intern(*separated_list.cmds_array);
+        }
+        else{
+            handle_redirection_extern(*separated_list.cmds_array);
+        }
     }
 }
 
-
+/**
+ * Verify syntax for the standard input and output
+ * @param cmds the list of commands to verify
+ */
+void verify_syntax(cmds_struct cmds){
+    for(int i=0; i<cmds.taille_array; ++i){
+        for(int j=0; j<cmds.cmds_array[i].taille_array; ++j){
+            if((strcmp(cmds.cmds_array[i].cmd_array[j],">")==0
+            || strcmp(cmds.cmds_array[i].cmd_array[j],">>")==0
+            || strcmp(cmds.cmds_array[i].cmd_array[j],">|")==0)
+            && i!=(cmds.taille_array-1)){
+                syntax_error=1;
+                errorCode=2;
+                return;
+            }
+            if((strcmp(cmds.cmds_array[i].cmd_array[j],">")==0
+                || strcmp(cmds.cmds_array[i].cmd_array[j],">>")==0
+                || strcmp(cmds.cmds_array[i].cmd_array[j],">|")==0)
+                && j==(cmds.cmds_array[i].taille_array-1)){
+                syntax_error=1;
+                errorCode=2;
+                return;
+            }
+            if(strcmp(cmds.cmds_array[i].cmd_array[j],"<")==0 && i!=0){
+                syntax_error=1;
+                errorCode=2;
+                return;
+            }
+        }
+    }
+}
 
 void joker_expansion(cmd_struct liste){
     //printf("joker_expansion \n");
@@ -453,8 +504,10 @@ void joker_expansion(cmd_struct liste){
 
     test_Arg_Len(new_liste.cmd_array);
 
-    cmds_struct separated_list=separate_redirections(new_liste);
+    cmds_struct separated_list=separate_pipes(new_liste);
+    verify_syntax(separated_list);
     interpreter(*new_liste.cmd_array,separated_list);
+    syntax_error=0;
     freeCmdsArray(separated_list);
     freeCmdArray(new_liste);
 }

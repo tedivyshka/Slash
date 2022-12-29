@@ -52,18 +52,15 @@ void handle_redirection_intern(cmd_struct cmd){
             if(dup2(in_fd,STDIN_FILENO)<0) perror_exit("dup2");
             if(close(in_fd)<0) perror_exit("close");
         }
-            // output redirection
+        // output redirection
         else if(strcmp(*(line+i),">")==0 || strcmp(*(line+i),">|")==0 || strcmp(*(line+i),">>")==0){
             if(strcmp(*(line+i),">")==0){
-                //out_flags|=O_CREAT | O_EXCL;
                 out_flags=O_WRONLY | O_CREAT | O_EXCL;
             }
             else if(strcmp(*(line+i),">>")==0){
-                //out_flags|=O_CREAT | O_APPEND;
                 out_flags=O_WRONLY | O_CREAT | O_APPEND;
             }
             else if(strcmp(*(line+i),">|")==0){
-                //out_flags|=O_TRUNC;
                 out_flags=O_WRONLY | O_CREAT | O_TRUNC;
             }
             i++;
@@ -76,7 +73,7 @@ void handle_redirection_intern(cmd_struct cmd){
             if(dup2(out_fd,STDOUT_FILENO)<0) perror_exit("dup2");
             if(close(out_fd)<0) perror_exit("close");
         }
-            // error redirection
+        // error redirection
         else if(strcmp(*(line+i),"2>")==0 || strcmp(*(line+i),"2>|")==0 || strcmp(*(line+i),"2>>")==0){
             if(strcmp(*(line+i),"2>")==0){
                 err_flags=O_WRONLY | O_CREAT | O_EXCL;
@@ -122,13 +119,13 @@ void handle_redirection_extern(cmd_struct cmd){
                 int in_fd=open(*(line+i),in_flags,0666);
                 if(in_fd<0){
                     errorCode=1;
-                    return;
+                    exit(errorCode);
                 }
                 saved[0]=dup(0);
                 if(dup2(in_fd,STDIN_FILENO)<0) perror_exit("dup2");
                 if(close(in_fd)<0) perror_exit("close");
             }
-                // output redirection
+            // output redirection
             else if(strcmp(*(line+i),">")==0 || strcmp(*(line+i),">|")==0 || strcmp(*(line+i),">>")==0){
                 if(strcmp(*(line+i),">")==0){
                     out_flags=O_WRONLY | O_CREAT | O_EXCL;
@@ -141,39 +138,32 @@ void handle_redirection_extern(cmd_struct cmd){
                 }
                 i++;
                 int out_fd=open(*(line+i),out_flags, 0666);
+                // kill child if the file can't be opened
                 if(out_fd<0){
-                    if(strcmp(*(line+i-1),">")==0){
-                        perror_exit(">");
-                    }
                     errorCode=1;
-                    return;
+                    perror_exit("slash");
                 }
                 saved[1]=dup(1);
                 if(dup2(out_fd,STDOUT_FILENO)<0) perror_exit("dup2");
                 if(close(out_fd)<0) perror_exit("close");
             }
-                // error redirection
+            // error redirection
             else if(strcmp(*(line+i),"2>")==0 || strcmp(*(line+i),"2>|")==0 || strcmp(*(line+i),"2>>")==0){
                 if(strcmp(*(line+i),"2>")==0){
-                    //err_flags|=O_CREAT | O_EXCL;
                     err_flags=O_WRONLY | O_CREAT | O_EXCL;
                 }
                 else if(strcmp(*(line+i),"2>>")==0){
                     err_flags=O_WRONLY | O_CREAT | O_APPEND;
-                    //err_flags|=O_CREAT | O_EXCL;
                 }
                 else if(strcmp(*(line+i),"2>|")==0){
-                    //err_flags|=O_TRUNC;
                     err_flags=O_WRONLY | O_CREAT | O_TRUNC;
                 }
                 i++;
                 int err_fd=open(*(line+i),err_flags,0666);
+                // kill child if the file can't be opened
                 if(err_fd<0){
-                    if(strcmp(*(line+i-1),"2>")==0){
-                        perror_exit("2>");
-                    }
                     errorCode=1;
-                    return;
+                    perror_exit("slash");
                 }
                 saved[2]=dup(2);
                 if(dup2(err_fd,STDERR_FILENO)<0) perror_exit("dup2");

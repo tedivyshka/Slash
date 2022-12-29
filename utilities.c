@@ -36,7 +36,8 @@ void testMalloc(void * ptr){
  */
 void freeCmdArray(cmd_struct array) {
     for (int i = 0; i < array.taille_array; i++) {
-        free(*(array.cmd_array + i));
+        // don't free
+            free(*(array.cmd_array + i));
     }
     free(array.cmd_array);
 }

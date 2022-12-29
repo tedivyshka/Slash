@@ -4,6 +4,8 @@ static char* input_redir;
 static char** output_redir;
 static char** error_redir;
 
+int syntax_error=0;
+
 void exec_command_pipeline(cmd_struct list,pid_t pid){
     if(pid==0){
         defaultSignals();
@@ -26,7 +28,10 @@ void exec_command_pipeline(cmd_struct list,pid_t pid){
 char* in_redir(cmd_struct cmd){
     for(int i=0;i<cmd.taille_array;i++){
         if(strcmp(*(cmd.cmd_array+i),"<")==0){
-            if(i+1==cmd.taille_array) perror_exit("input redirection");
+            if(i+1==cmd.taille_array || strcmp_redirections(*(cmd.cmd_array+i+1))==1 || strcmp(*(cmd.cmd_array+i+1),"|")==0){
+                syntax_error=1;
+                errorCode=2;
+            }
             return *(cmd.cmd_array+i+1);
         }
     }
@@ -37,7 +42,10 @@ char** out_redir(cmd_struct cmd){
     char** res= malloc(sizeof(char*)*2);
     for(int i=0;i<cmd.taille_array;i++){
         if((strcmp(*(cmd.cmd_array+i),">")==0 || strcmp(*(cmd.cmd_array+i),">|")==0 || strcmp(*(cmd.cmd_array+i),">>")==0)){
-            if(i+1==cmd.taille_array) perror_exit("out redirection");
+            if(i+1==cmd.taille_array || strcmp_redirections(*(cmd.cmd_array+i+1))==1 || strcmp(*(cmd.cmd_array+i+1),"|")==0){
+                syntax_error=1;
+                errorCode=2;
+            }
             *res=malloc(sizeof(char)*strlen(*(cmd.cmd_array+i))+1);
             *(res+1)=malloc(sizeof(char)*strlen(*(cmd.cmd_array+i+1))+1);
             strcpy(*res,*(cmd.cmd_array+i));
@@ -53,7 +61,10 @@ char** err_redir(cmd_struct cmd){
     char** res=malloc(sizeof(char*)*2);
     for(int i=0;i<cmd.taille_array;i++){
         if((strcmp(*(cmd.cmd_array+i),"2>")==0 || strcmp(*(cmd.cmd_array+i),"2>|")==0 || strcmp(*(cmd.cmd_array+i),"2>>")==0)){
-            if(i+1==cmd.taille_array) perror_exit("stderr redirection");
+            if(i+1==cmd.taille_array || strcmp_redirections(*(cmd.cmd_array+i))==1 || strcmp(*(cmd.cmd_array+i),"|")==0){
+                syntax_error=1;
+                errorCode=2;
+            }
             *res=malloc(sizeof(char)*strlen(*(cmd.cmd_array+i))+1);
             *(res+1)=malloc(sizeof(char)*strlen(*(cmd.cmd_array+i+1))+1);
             strcpy(*res,*(cmd.cmd_array+i));
@@ -71,6 +82,12 @@ void handle_pipe(cmds_struct cmds){
     output_redir=out_redir(*(cmds.cmds_array+num_commands-1));
     int output_fd;
     int error_fd;
+
+    if(syntax_error==1){
+        dprintf(STDERR_FILENO,"slash: syntax error\n");
+        errorCode=2;
+        return;
+    }
 
     // create a pipe for each pair of adjacent commands
     size_t num_pipes=num_commands-1;
@@ -94,6 +111,12 @@ void handle_pipe(cmds_struct cmds){
     // set up the pipeline and redirections in the child processes
     for (int i=0; i<num_commands; i++) {
         if (child_pids[i]==0) {
+            // when there's two pipes next to each other, we exit the child process
+            if(strcmp(*((cmds.cmds_array+i)->cmd_array),"\0")==0){
+                dprintf(STDERR_FILENO,"slash: syntax error near unexpected token '|'\n");
+                errorCode=2;
+                exit(errorCode);
+            }
             // redirect standard input
             if (i==0){
                 if(strcmp(input_redir,"")!=0) {
@@ -106,7 +129,7 @@ void handle_pipe(cmds_struct cmds){
                     close(input_fd);
                 }
             }
-                // redirect the write end of the last pipe
+            // redirect the write end of the last pipe
             else if (i>0) {
                 dup2(pipes[i-1][0],STDIN_FILENO);
             }
@@ -114,7 +137,7 @@ void handle_pipe(cmds_struct cmds){
             if (i<num_commands-1) {
                 dup2(pipes[i][1],STDOUT_FILENO);
             }
-                // redirect standard output
+            // redirect standard output
             else if(strcmp(*output_redir,"")!=0){
                 // redirect standard output to a file
                 if(strcmp(*output_redir,">") == 0){
@@ -139,8 +162,6 @@ void handle_pipe(cmds_struct cmds){
             if(strcmp(*error_redir,"")!=0){
                 // redirect error output to a file
                 if(strcmp(*error_redir,"2>")==0){
-                    //dprintf(STDERR_FILENO,"%s\n",*(error_redir));
-                    //dprintf(STDERR_FILENO,"%s\n",*(error_redir+1));
                     error_fd=open(*(error_redir+1),O_WRONLY | O_CREAT | O_EXCL,0666);
                 }
                 else if(strcmp(*error_redir,"2>>")==0){
@@ -183,7 +204,7 @@ void handle_pipe(cmds_struct cmds){
         if(strcmp(*((cmds.cmds_array+i)->cmd_array),"exit")==0){
             exit(errorCode);
         }
-        if(errorCode==1) break;
+        if(errorCode==1 || errorCode==2) break;
         if(WIFSIGNALED(status)) errorCode = -1;
     }
 }
