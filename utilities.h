@@ -34,21 +34,36 @@ typedef struct cmds_struct{
     size_t taille_array;
 }cmds_struct;
 
+
+/**
+ * Exec perror with a message and exit with error status 1
+ * @param msg the perror message
+ */
+void perror_exit(char* msg);
+
 /***
  * Checks if a malloc has failed.
  * @param ptr pointer to check
  */
 void testMalloc(void * ptr);
 
-/***
- * Free an instance of struct cmds_struct.
+/**
+ * Free an instance of struct cmd_struct.
  * @param array cmds_struct
  */
 void freeCmdArray(cmd_struct array);
 
+/**
+ * Free an instance of struct cmds_struct
+ * @param array
+ */
+void freeCmdsArray(cmds_struct array);
+
 cmd_struct copyCmdsStruct(cmd_struct liste);
 
 char** copyStringArray(char** liste);
+
+char** copyNStringArray(char** liste,size_t n);
 
 void freeArray(char** array);
 

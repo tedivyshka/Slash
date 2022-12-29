@@ -9,7 +9,16 @@ char * pwdPhy;
 char * home;
 
 
-/***
+/**
+ * Exec perror with a message and exit with error status 1
+ * @param msg the perror message
+ */
+void perror_exit(char* msg){
+    perror(msg);
+    exit(1);
+}
+
+/**
  * Checks if a malloc has failed.
  * @param ptr pointer to check
  */
@@ -21,9 +30,9 @@ void testMalloc(void * ptr){
     }
 }
 
-/***
- * Free an instance of struct cmd_struct.
- * @param array cmd_struct
+/**
+ * Free an instance of struct cmd_struct and the array of strings inside
+ * @param array cmd_struct the struct to free
  */
 void freeCmdArray(cmd_struct array) {
     for (int i = 0; i < array.taille_array; i++) {
@@ -32,22 +41,36 @@ void freeCmdArray(cmd_struct array) {
     free(array.cmd_array);
 }
 
-cmd_struct copyCmdtruct(cmd_struct liste){
-    cmd_struct cmd_cpy;
-    cmd_cpy.taille_array= liste.taille_array;
-    cmd_cpy.cmd_array= malloc(sizeof(char *) * liste.taille_array);
-    memcpy(cmd_cpy.cmd_array,liste.cmd_array,sizeof(char *)*liste.taille_array);
-    for (int i = 0; i < liste.taille_array; i++){
-        *(cmd_cpy.cmd_array+i)= malloc(sizeof(char)* strlen(*(liste.cmd_array+i)));
-        strcpy(*(cmd_cpy.cmd_array+i),*(liste.cmd_array+i));
+/**
+ * Free an instance of struct cmds_struct and the array of cmd_struct inside
+ * @param array cmd_struct the struct to free
+ */
+void freeCmdsArray(cmds_struct array){
+    for (int i = 0; i < array.taille_array; i++) {
+        freeCmdArray(*(array.cmds_array+i));
     }
-    return cmd_cpy;
+    free(array.cmds_array);
 }
 
+/**
+ * Get the size of a NULL terminated array
+ * @param array array to calculate the size of
+ * @return the size
+ */
+size_t get_array_size(char** array){
+    size_t taille=0;
+    while(*(array+taille) != NULL) taille++;
+    return taille;
+}
+
+/**
+ * Copy an array of string and NULL terminate it
+ * @param liste the array to copy
+ * @return the new array of strings
+ */
 char** copyStringArray(char** liste){
     char** liste_cpy;
-    size_t taille=0;
-    while(*(liste+taille) != NULL) taille++;
+    size_t taille=get_array_size(liste);
     liste_cpy = malloc(sizeof(char *) * (taille+1));
     memcpy(liste_cpy,liste,sizeof(char *)*taille);
     for (int i = 0; i < taille; i++) {
@@ -58,6 +81,29 @@ char** copyStringArray(char** liste){
     return liste_cpy;
 }
 
+/**
+ * Same as copyStringArray() but with n string copied
+ * @param liste array
+ * @param n the amount of string to copy
+ * @return the new array of strings
+ */
+char** copyNStringArray(char** liste,size_t n){
+    size_t taille=get_array_size(liste);
+    if(n<taille) taille=n;
+    char** liste_cpy = malloc(sizeof(char *) * (taille+1));
+    memcpy(liste_cpy,liste,sizeof(char *)*taille);
+    for (int i = 0; i < taille; i++) {
+        *(liste_cpy+i)= malloc(sizeof(char)* (strlen(*(liste+i))+1));
+        strcpy(*(liste_cpy+i),*(liste+i));
+    }
+    *(liste_cpy+taille)=NULL;
+    return liste_cpy;
+}
+
+/**
+ * Free an array of string
+ * @param array double pointer of char
+ */
 void freeArray(char** array) {
     for (int i = 0; *(array+i) != NULL; i++) {
         free(*(array+i));
@@ -65,8 +111,8 @@ void freeArray(char** array) {
     free(array);
 }
 
-/***
- * Double the size allocated to the variable if necessary.
+/**
+ * Double the size allocated to the variable if necessary
  * @param array string array
  * @param taille_array array size
  * @param taille_array_initiale initial array size
@@ -85,8 +131,8 @@ char** checkArraySize(char** array,size_t taille_array,size_t* taille_array_init
     return array;
 }
 
-/***
- * Checks that a path is valid physically.
+/**
+ * Checks that a path is valid physically
  * @param path relative or absolute path
  * @return int val to represent boolean value. 0 = True, 1 = False
  */
@@ -108,7 +154,7 @@ int isPathValidPhy(char * path){
 
 
 /***
- * Checks that a path is valid logically.
+ * Checks that a path is valid logically
  * @param path absolute path for a directory
  * @return int val to represent boolean value. 0 = True, 1 = False
  */
@@ -118,9 +164,12 @@ int isPathValidLo(char* path){
     return (res == 0 && S_ISDIR(st.st_mode))?0:1;
 }
 
-
-
-// Function to combine two char** variables into a single char**
+/**
+ * Function to combine two char** variables into a single char**
+ * @param arr1
+ * @param arr2
+ * @return
+ */
 char** combine_char_array(char** arr1, char** arr2) {
     // First, count the number of elements in each array
     int len1 = 0;
@@ -161,7 +210,6 @@ char** combine_char_array(char** arr1, char** arr2) {
     combined[i] = NULL;
     return combined;
 }
-
 
 void print_char_double_ptr(char **str) {
     printf("print_char_double_ptr\n");
