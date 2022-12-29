@@ -82,7 +82,7 @@ void run(){
             if(strcmp(ligne,"\n")!=0){
                 add_history(ligne);
                 liste=lexer(ligne);
-                joker_solo_asterisk(liste);
+                joker_expansion(liste);
             }
             freeCmdArray(liste);
         }

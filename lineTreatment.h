@@ -15,7 +15,7 @@
  */
 cmd_struct lexer(char* ligne);
 
-void joker_solo_asterisk(cmd_struct liste);
+void joker_expansion(cmd_struct liste);
 
 /**
  * Compare a string to multiple redirection signs (<,>,>|,>>,2>,2>|,2>>)

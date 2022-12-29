@@ -94,4 +94,9 @@ char** combine_char_array(char** arr1, char** arr2);
 
 void print_char_double_ptr(char **str);
 
+int count_chars(char **strings);
+
+void test_Arg_Len(char ** strings);
+
+
 #endif //SLASH_UTILITIES_H

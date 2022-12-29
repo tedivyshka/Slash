@@ -221,3 +221,32 @@ void print_char_double_ptr(char **str) {
     }
 }
 
+/***
+ * A function that return the number of char
+ * inside a char ** null terminated.
+ * @param strings
+ * @return count of char in strings
+ */
+int count_chars(char ** strings) {
+    int count = 0;
+    for (int i = 0; strings[i] != NULL; i++) {
+        for (int j = 0; strings[i][j] != '\0'; j++) {
+            count++;
+        }
+    }
+    return count;
+}
+
+/***
+* if the line contains more than MAX_ARGS_STRLEN, the program is exited.
+ * @param strings arguments of command line
+ */
+void test_Arg_Len(char ** strings){
+    if(count_chars(strings) >= MAX_ARGS_STRLEN){
+        errno = 7;
+        perror("MAX_ARGS_STRLEN reached");
+        exit(1);
+    }
+}
+
+
