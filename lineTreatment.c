@@ -8,13 +8,14 @@
  * #define MAX_ARGS_NUMBER 4096
  * #define MAX_ARGS_STRLEN 4096
  */
-// fonction qui renvoie la position de la premiere asterisk dans le string, ou alors -1 s'il n'y en a pas
-int getAsteriskPos(char * asteriskString){
-    for(int index = 0; index < strlen(asteriskString); index++){
-        if(asteriskString[index] == '*') return index;
-    }
-    return -1;
-}
+
+/**
+ * returns a string representing the prefix of a word.
+ * The boundary between the prefix and the radical is the position pos, not included.
+ * @param pos position
+ * @param asteriskString word
+ * @return prefix word
+ */
 char * getPrefixe(unsigned long pos, char * asteriskString){
     char * prefixe = malloc(sizeof(char) * (pos + 1));
     testMalloc(prefixe);
@@ -25,6 +26,13 @@ char * getPrefixe(unsigned long pos, char * asteriskString){
     return prefixe;
 }
 
+/**
+ * returns a string representing the suffix of a word.
+ * The boundary between the suffix and the radical is the position pos, included.
+ * @param pos position
+ * @param asteriskString word
+ * @return prefix word
+ */
 char * getSuffixe(unsigned long pos, char * asteriskString){
     size_t len = strlen(asteriskString);
     size_t sub_len = len - pos;
@@ -35,7 +43,12 @@ char * getSuffixe(unsigned long pos, char * asteriskString){
     return sub;
 }
 
-
+/**
+ * returns the sub-string from the start position to the next "/" (or the end of the word).
+ * @param start position
+ * @param asteriskString
+ * @return
+ */
 char * getAstefixe(int start, const char * asteriskString){
     int end = start;
     while(asteriskString[end] != '\0' && asteriskString[end] != '/' ) end++;
@@ -46,7 +59,14 @@ char * getAstefixe(int start, const char * asteriskString){
     return asterisk;
 }
 
-// vérifie que asterisk_string est suffixe de entry_name
+
+/**
+ * checks that asterisk_string is a suffix of entry_name.
+ * A character by character comparison from the end to the beginning.
+ * @param entry_name
+ * @param asterisk_string
+ * @return 1 for true, 0 for false.
+ */
 int strstrSuffixe(char * entry_name, char * asterisk_string){
     if(strlen(entry_name) < strlen(asterisk_string)) return 0;
     int index = strlen(entry_name) - 1;
@@ -57,72 +77,120 @@ int strstrSuffixe(char * entry_name, char * asterisk_string){
     return 1;
 }
 
+/**
+ * the position of the first ' * ' that is not a valid path
+ * (A directory/file that contains ' * ' in its name).
+ * returns -1 if there is none
+ * @param asteriskString
+ * @return -1 or pos
+ */
+int getAsteriskPos(char * asteriskString){
+    for(int index = 0; index < strlen(asteriskString); index++){
+        if(asteriskString[index] == '*'){
+            //look for the position of the first ' / ' after ' * '
+            int pos_slash = index;
+            while(asteriskString[pos_slash] != '\0' && asteriskString[pos_slash] != '/' ) pos_slash++;
 
-char ** replaceAsterisk(char * asteriskString) {
-    //printf("--------------------- replaceAsterisk ---------------------------- \n");
-    char ** res = malloc(sizeof(char *) * 1);
-    res[0] = NULL;
-    int posAsterisk = getAsteriskPos(asteriskString);
+            // get all the path to the end of the word containing ' * ' detected
+            // for example : a/b/c/*test/x/y -> a/b/c/*test
+            char * pre_and_ast = getPrefixe(pos_slash, asteriskString);
 
-
-    // cas ou il n'y a pas d'asterisk
-    if (posAsterisk == -1){
-        struct stat st;
-        // on vérifie que le chemin existe
-        if(lstat(asteriskString,&st) == 0){ // si oui, on va a end
-            goto endWithAsterisk;
-        }else{
-            return res; // sinon on renvoie res (vide)
+            struct stat st;
+            //check if it's a valid path, in this case, we return the index
+            if(lstat(pre_and_ast,&st) != 0) {
+                free(pre_and_ast);
+                return index;
+            }else{ // if not, we look for the following ' * '.
+                free(pre_and_ast);
+            }
         }
     }
+    return -1;
+}
 
 
-    // cas ou l'asterisk n'est pas préfixe
+/**
+ * This function is used for the expansion of the jokers.
+ * It checks that the word contains a ' * '.
+ * If it does, it replaces this star with all possible entries
+ * in the directory corresponding to the prefix (' . ' if no prefix)
+ * and to the rest of the word after the ' *  '
+ * (if * is followed by chars before the next ' / ' or the end of the word).
+ *
+ * After that, we recursively call the function on all the results obtained,
+ * and we combine the results of these recursive calls in a char **
+ * which represents a list of each of these possibilities.
+ * The function ends when the prefix or the word after ' * ' (and both together)
+ * no longer matches an existing path.
+ * It also terminates when there is no ' * ' in the word studied.
+ *
+ * this function is detailed with comments within it.
+ *
+ * @param asteriskString
+ * @return char ** tab which represent
+ * all the possible paths that can replace a path containing one or more ' * '.
+ */
+char ** replaceAsterisk(char * asteriskString) {
+    char ** res = malloc(sizeof(char *) * 1);
+    res[0] = NULL;
+
+    struct stat st;
+    // we check that the path exists
+    if(lstat(asteriskString,&st) == 0) {
+        // if yes, we go to end
+        goto endWithAsterisk;
+    }
+
+    int posAsterisk = getAsteriskPos(asteriskString);
+
+    // if there is no asterisk and the path is not valid
+    if (posAsterisk == -1){
+        return res; //res (empty) is returned
+    }
+
+    // if the asterisk is not prefixed
     if((posAsterisk != 0 && asteriskString[posAsterisk - 1] != '/')) goto endWithAsterisk;
 
-    /*on cherche à récupérer 3 char * correspondants à
-     * la partie avant *
-     * la partie ou il y a * (mais sans l'*)
-     * la partie apres *
-     */
+
+    /*we are looking for 3 char * corresponding to
+    * the front part of ' * '
+    * the part where there is ' * '(but without the *)
+    * the part after ' * '
+    */
     char *prefixe = getPrefixe(posAsterisk, asteriskString);
     char *asterisk = getAstefixe(posAsterisk + 1, asteriskString);
     unsigned long tailleSuf = strlen(prefixe) + strlen(asterisk) + 1;
     char *suffixe = getSuffixe(tailleSuf, asteriskString);
 
-
-    //desormais on va ouvrir le repertoire préfixe
+    //Now we will open the prefix directory
     DIR *dir = NULL;
     struct dirent *entry;
-
     if (strlen(prefixe) == 0) {
         dir = opendir(".");
     } else {
         dir = opendir(prefixe);
     }
 
-    // On vérifie que le repertoire a bien été ouvert.
-    // S'il n'est pas ouvert, c'est que le chemin n'est pas valide
+    // We check that the directory has been opened.
+    // If it is not opened, it means that the path is not valid
     if (dir == NULL) {
-
         free(prefixe);
         free(suffixe);
         free(asterisk);
-
+        //res (empty) is returned
         return res;
     }
 
-    // on parcourt les entrées du répertoire
+    // we browse the entries in the directory
     while ((entry = readdir(dir)) != NULL) {
-        // cas où le fichier est '.', '..' ou caché
+        // if the file is '.', '..' or hidden
         if (entry->d_name[0] == '.') continue;
-        // cas ou il y a une suite à la sous chaine avec asterisk (*/test par exemple)
+        // case where there is a continuation to the sub-string with asterisk (*/test for example)
         if (strlen(suffixe) != 0) {
-            // dans ce cas, si le fichier n'est PAS un répertoire, on passe au suivant
+            // in this case, if the file is NOT a directory, we go to the next one
             if (entry->d_type != DT_DIR && entry->d_type != DT_LNK) continue;
         }
-        // à chaque correspondance entre le substring et entry, on realloc le tableau
-        //
+        // at each match between the substring and entry, we realloc the array
         if (strstrSuffixe(entry->d_name, asterisk) == 1) {
             char *newString = malloc(sizeof(char) * (strlen(prefixe) + strlen(entry->d_name) + strlen(suffixe) + 1));
             testMalloc(newString);
@@ -142,33 +210,49 @@ char ** replaceAsterisk(char * asteriskString) {
     free(suffixe);
     free(asterisk);
 
-    //printf("sortie normale replaceAsterisk \n");
-    //print_char_double_ptr(res);
     return res;
 
-    // cas où l'on doit retourner le chemin donné en argument, seul et inchangé
+    // in case we have to return the path given as argument, alone and unchanged
     endWithAsterisk:
     freeArray(res);
     res = malloc(sizeof(char *) * 2);
     res[0] = malloc(sizeof(char) * strlen(asteriskString) + 1);
     strcpy(res[0], asteriskString);
     res[1] = NULL;
-
-    //printf("sortie end replaceAsterisk \n");
-    //print_char_double_ptr(res);
     test_Arg_Len(res);
     return res;
 
 }
-
+/**
+ * the purpose of this function is to browse and
+ * return all possible paths to replace ' ** '.
+ * This function is recursive and calls replaceAsterisk.
+ * It is a recursion that can make a large number of sub-calls.
+ * To avoid any overflow, we limit the size of the result to 4096 char.
+ * If this limit is exceeded, an error will occur and slash will be aborted.
+ *
+ * Add to path the name of all the directories it contains,
+ * and then call replaceAsterisk with this newpath.
+ * It is this function that will check if newpath is valid.
+ * In this case it will return a char ** of all possible
+ * replacements of the single ' * ' in newpath (if any).*
+ *
+ * In addition to calling replaceAsterisk,
+ * this function will make a recursive call
+ * with the parameters (newpath,suffix).
+ *
+ * Thus we go through the whole arborescence.
+ *
+ * @param path the path prefix of ' ** '
+ * @param suffixe the suffix ("" if no suffix)
+ * @return char ** tab which represent all the possible paths that can
+ * replace a path containing ' ** ' and one or more ' * '.
+ */
 char ** doubleAsteriskParcours(char * path, char * suffixe){
-    //printf("------------------DoubleAsteriskParcours------------------\n");
-
     char **res = malloc(sizeof(char *) * 1);
     res[0] = NULL;
 
-
-    //cas ou ** ne représente rien
+    // initial case where path is still empty
     if(strcmp(path,"") == 0){
         char * s = malloc(sizeof(char) * (strlen(suffixe) + 1));
         strcpy(s,suffixe);
@@ -182,6 +266,7 @@ char ** doubleAsteriskParcours(char * path, char * suffixe){
         free(s);
 
     }
+
 
     DIR *dir = NULL;
     struct dirent *entry;
@@ -216,9 +301,9 @@ char ** doubleAsteriskParcours(char * path, char * suffixe){
                 sprintf(newString, "%s/%s/%s", path, entry->d_name, suffixe);
             }else{
                 //pas de suffixe
-                newString = malloc(sizeof(char) * (strlen(path) + strlen(entry->d_name) + 2));
+                newString = malloc(sizeof(char) * (strlen(path) + strlen(entry->d_name) + 3));
                 testMalloc(newString);
-                sprintf(newString, "%s/%s", path, entry->d_name);
+                sprintf(newString, "%s/%s/", path, entry->d_name);
             }
         }else{
             // pas de chemin avant
@@ -230,9 +315,9 @@ char ** doubleAsteriskParcours(char * path, char * suffixe){
                 sprintf(newString, "%s/%s", entry->d_name, suffixe);
             }else{
                 //pas de suffixe
-                newString = malloc(sizeof(char) * (strlen(entry->d_name) + 1));
+                newString = malloc(sizeof(char) * (strlen(entry->d_name) + 2));
                 testMalloc(newString);
-                sprintf(newString, "%s", entry->d_name);
+                sprintf(newString, "%s/", entry->d_name);
             }
         }
 
