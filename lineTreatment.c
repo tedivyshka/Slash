@@ -481,8 +481,8 @@ cmds_struct separate_pipes(cmd_struct cmd){
             if(string_count==size_tmp){
                 (cmds_array+res.taille_array)->cmd_array=malloc(sizeof(char*));
                 *(cmds_array+res.taille_array)->cmd_array=malloc(sizeof(char));
-                testMalloc((cmds_array+res.taille_array)->cmd_array)
-                testMalloc(*(cmds_array+res.taille_array)->cmd_array)
+                testMalloc((cmds_array+res.taille_array)->cmd_array);
+                testMalloc(*(cmds_array+res.taille_array)->cmd_array);
                 cmds_array[res.taille_array].cmd_array[0][0]='\0';
                 (cmds_array+res.taille_array)->taille_array=1;
                 syntax_error=1;
