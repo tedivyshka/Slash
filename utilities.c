@@ -167,9 +167,9 @@ int isPathValidLo(char* path){
 
 /**
  * Function to combine two char** variables into a single char**
- * @param arr1
- * @param arr2
- * @return
+ * @param arr1 char ** null terminated
+ * @param arr2 char ** null terminated
+ * @return char ** null terminated
  */
 char** combine_char_array(char** arr1, char** arr2) {
     // First, count the number of elements in each array
