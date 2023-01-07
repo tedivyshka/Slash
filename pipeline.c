@@ -204,7 +204,6 @@ void handle_pipe(cmds_struct cmds){
         if(strcmp(*((cmds.cmds_array+i)->cmd_array),"exit")==0){
             exit(errorCode);
         }
-        if(errorCode==1 || errorCode==2) break;
         if(WIFSIGNALED(status)) errorCode = -1;
     }
 }
