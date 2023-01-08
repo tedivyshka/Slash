@@ -275,10 +275,12 @@ char ** doubleAsteriskParcours(char * path, char * suffixe){
     if (strcmp(path, "") == 0) dir = opendir(".");
     else dir = opendir(path);
 
-    // No need to test the case where dir == null,
-    // in fact path is "" at the first call,
-    // and the sub-calls are made on the browsed directories.
-    // They are therefore valid.
+    // The dir is theoretically valid because it is made from previous calls.
+    // therefore it could be null because of the protected files
+    if(dir == NULL){
+        return res;
+    }
+
 
     // we browse the current directory
     while ((entry = readdir(dir)) != NULL) {
@@ -355,12 +357,12 @@ char ** doubleAsteriskParcours(char * path, char * suffixe){
             freeArray(replace);
             freeArray(tmp);
             free(newPath);
+
+            // we check that the length of the result is less than 4096
+            test_Arg_Len(res);
         }
     }
     closedir(dir);
-
-    // we check that the length of the result is less than 4096
-    test_Arg_Len(res);
 
     return res;
 }
@@ -603,7 +605,8 @@ void joker_expansion(cmd_struct liste){
         char * suppressed_slash = supprimer_occurences_slash(*(liste.cmd_array+i));
         char** replace;
         // case **
-        if(strlen(suppressed_slash) > 1 && suppressed_slash[0] == '*' && suppressed_slash[1] == '*'){
+        if((strlen(suppressed_slash) == 2 && suppressed_slash[0] == '*' && suppressed_slash[1] == '*')
+        || (strlen(suppressed_slash) > 2 && suppressed_slash[0] == '*' && suppressed_slash[1] == '*' && suppressed_slash[2] == '/')){
             replace = replaceDoubleAsterisk(suppressed_slash);
         }else{ // default case
             replace = replaceAsterisk(suppressed_slash);
