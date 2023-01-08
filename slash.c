@@ -76,7 +76,7 @@ void run(){
         if(ligne==NULL){
             exit(errorCode);
         }
-        else if(ligne && *ligne){
+        else if(ligne && *ligne && !is_empty(ligne)){
             if(strcmp(ligne,"\n")!=0){
                 add_history(ligne);
                 liste=lexer(ligne);

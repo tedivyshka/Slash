@@ -239,4 +239,20 @@ void test_Arg_Len(char ** strings){
     }
 }
 
+/**
+ * Check if the line contains only whitespaces
+ * @param ligne the line to check from
+ * @return 1 if empty else 0
+ */
+int is_empty(char* ligne){
+    size_t i=0;
+    while(*(ligne+i) != '\0'){
+        if(!isspace(*(ligne+i))){
+            return 0;
+        }
+        i++;
+    }
+    return 1;
+}
+
 

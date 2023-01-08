@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <ctype.h>
 
 #define MAX_ARGS_NUMBER 4096
 #define MAX_ARGS_STRLEN 4096
@@ -127,6 +128,13 @@ int count_chars(char **strings);
  * @param strings arguments of command line
  */
 void test_Arg_Len(char ** strings);
+
+/**
+ * Check if the line contains only whitespaces
+ * @param ligne the line to check from
+ * @return 1 if empty else 0
+ */
+int is_empty(char* ligne);
 
 
 #endif //SLASH_UTILITIES_H
