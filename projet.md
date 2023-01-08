@@ -152,6 +152,12 @@ indications de couleur), et est formé des éléments suivants :
 - la bascule `"\033[00m"` (retour à la normale);  
 - un dollar puis un espace (`"$ "`).  
 
+Pour que l'affichage s'adapte correctement à la géométrie de la fenêtre,
+chaque bascule de couleur doit être entourée des balises `'\001'` et
+`'\002'` (qui indiquent que la portion de chaîne qu'elles délimitent est
+formée de caractères non imprimables et doit donc être ignorée dans le
+calcul de la longueur du texte à afficher).
+
 Par exemple (sans la coloration) :
 ```bash
 [0]/home/titi$ cd pas/trop/long
@@ -171,7 +177,7 @@ cd: no such file or directory: repertoire-inexistant
   base** (valide, donc en particulier non vide);
 
 - `**/` : tout préfixe de chemin **physique** de la forme `*/*/.../`
-  formé d'au moins une composante (en particulier, chaque composante 
+  ~~formé d'au moins une composante~~ (en particulier, chaque composante 
   est non vide, il s'agit donc de références relatives au répertoire
   courant);
 
