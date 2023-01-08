@@ -25,6 +25,7 @@ char* promptGeneration(){
         strcpy(new_curr,curr_path_cpy);
     }
     char* res=malloc(sizeof(char)*(55+strlen(new_curr)));
+    testMalloc(res);
 
     if(errorCode==0){
         sprintf(res,"\001\033[32m\002[%d]\001\033[00m\002\001\033[34m\002%s\001\033[00m\002$ ",errorCode,new_curr);
@@ -46,10 +47,13 @@ char* promptGeneration(){
  */
 void initVar(){
     home = malloc(MAX_ARGS_STRLEN * sizeof(char));
+    testMalloc(home);
     strcpy(home,getenv("HOME"));
     pwd = malloc(MAX_ARGS_STRLEN * sizeof(char));
+    testMalloc(pwd);
     strcpy(pwd, getenv("PWD"));
     oldpwd = malloc(MAX_ARGS_STRLEN * sizeof(char));
+    testMalloc(oldpwd);
     if(getenv("OLDPWD") != NULL){
         strcpy(oldpwd,getenv("OLDPWD"));
     }

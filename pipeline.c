@@ -56,6 +56,7 @@ char* in_redir(cmd_struct cmd){
  */
 char** out_redir(cmd_struct cmd){
     char** res= malloc(sizeof(char*)*2);
+    testMalloc(res);
     for(int i=0;i<cmd.taille_array;i++){
         if((strcmp(*(cmd.cmd_array+i),">")==0 || strcmp(*(cmd.cmd_array+i),">|")==0 || strcmp(*(cmd.cmd_array+i),">>")==0)){
             // check for syntax error
@@ -65,6 +66,8 @@ char** out_redir(cmd_struct cmd){
             }
             *res=malloc(sizeof(char)*strlen(*(cmd.cmd_array+i))+1);
             *(res+1)=malloc(sizeof(char)*strlen(*(cmd.cmd_array+i+1))+1);
+            testMalloc(*res);
+            testMalloc(*(res+1));
             strcpy(*res,*(cmd.cmd_array+i));
             strcpy(*(res+1),*(cmd.cmd_array+i+1));
             return res;
@@ -81,6 +84,7 @@ char** out_redir(cmd_struct cmd){
  */
 char** err_redir(cmd_struct cmd){
     char** res=malloc(sizeof(char*)*2);
+    testMalloc(res);
     for(int i=0;i<cmd.taille_array;i++){
         if((strcmp(*(cmd.cmd_array+i),"2>")==0 || strcmp(*(cmd.cmd_array+i),"2>|")==0 || strcmp(*(cmd.cmd_array+i),"2>>")==0)){
             // check for syntax error
@@ -90,6 +94,8 @@ char** err_redir(cmd_struct cmd){
             }
             *res=malloc(sizeof(char)*strlen(*(cmd.cmd_array+i))+1);
             *(res+1)=malloc(sizeof(char)*strlen(*(cmd.cmd_array+i+1))+1);
+            testMalloc(*res);
+            testMalloc(*(res+1));
             strcpy(*res,*(cmd.cmd_array+i));
             strcpy(*(res+1),*(cmd.cmd_array+i+1));
             return res;

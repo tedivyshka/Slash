@@ -6,6 +6,7 @@
  */
 void process_external_command(cmd_struct liste){
     char** args = malloc(sizeof(char*) * (liste.taille_array + 1));
+    testMalloc(args);
     // fill args array
     for(int i = 0; i < liste.taille_array; i++){
         args[i] = malloc(sizeof(char) * strlen(*(liste.cmd_array + i)) + 1);
@@ -33,6 +34,7 @@ cmd_struct remove_redirections(cmd_struct liste){
             break;
         }
         *(args+i)=malloc(sizeof(char)*strlen(*(liste.cmd_array+i))+1);
+        testMalloc(*(args+i));
         strcpy(*(args+i),*(liste.cmd_array+i));
     }
     *(args+i)=NULL;
@@ -57,6 +59,7 @@ int process_cd(char * option, char * path){
                 return 1;
             }
             char * temp = malloc(sizeof(char) * MAX_ARGS_STRLEN);
+            testMalloc(temp);
             strcpy(temp,oldpwd);
             strcpy(oldpwd,pwd);
 
@@ -68,6 +71,7 @@ int process_cd(char * option, char * path){
         else{
             if(isPathValidPhy(path) != 0) { // if path isn't valid, an error message is displayed and the return value is 1.
                 char* er = malloc(sizeof(char) * (strlen(path) + 48));
+                testMalloc(er);
                 sprintf(er,"bash: cd: %s",path);
                 errno = ENOENT;
                 perror(er);
@@ -100,6 +104,7 @@ int process_cd(char * option, char * path){
                 return 1;
             }
             char * tmp = malloc(sizeof(char) * MAX_ARGS_STRLEN);
+            testMalloc(tmp);
             strcpy(tmp,oldpwd);
             strcpy(oldpwd,pwd);
             strcpy(pwd,tmp);
@@ -116,8 +121,10 @@ int process_cd(char * option, char * path){
             if (pathCopy[0] != '/') { // if the path is relative
                 // we create a path containing pwd and path
                 char *newPathTmp = malloc(sizeof(char) * (strlen(pwd) + strlen(pathCopy) + 2));
+                testMalloc(newPathTmp);
                 sprintf(newPathTmp,"%s/%s",pwd,pathCopy);
                 pathCopy = realloc(pathCopy, sizeof(char) * (strlen(newPathTmp) + 1));
+                testMalloc(pathCopy);
                 strcpy(pathCopy, newPathTmp);
                 free(newPathTmp);
             }
@@ -247,6 +254,7 @@ void process_pwd_call(cmd_struct liste){
     size_t size = liste.taille_array - 1;
     if(size > 0 && (strcmp(liste.cmd_array[1],"-P")==0)){
         char* pwd_physique = malloc(sizeof(char)*BUFSIZE);
+        testMalloc(pwd_physique);
         getcwd(pwd_physique,BUFSIZE);
         printf("%s\n",pwd_physique);
         free(pwd_physique);

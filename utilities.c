@@ -72,9 +72,11 @@ char** copyStringArray(char** liste){
     char** liste_cpy;
     size_t taille=get_array_size(liste);
     liste_cpy = malloc(sizeof(char *) * (taille+1));
+    testMalloc(liste_cpy);
     memcpy(liste_cpy,liste,sizeof(char *)*taille);
     for (int i = 0; i < taille; i++) {
         *(liste_cpy+i)= malloc(sizeof(char)* (strlen(*(liste+i))+1));
+        testMalloc(*(liste_cpy+i));
         strcpy(*(liste_cpy+i),*(liste+i));
     }
     *(liste_cpy+taille)=NULL;
@@ -91,9 +93,11 @@ char** copyNStringArray(char** liste,size_t n){
     size_t taille=get_array_size(liste);
     if(n<taille) taille=n;
     char** liste_cpy = malloc(sizeof(char *) * (taille+1));
+    testMalloc(liste_cpy);
     memcpy(liste_cpy,liste,sizeof(char *)*taille);
     for (int i = 0; i < taille; i++) {
         *(liste_cpy+i)= malloc(sizeof(char)* (strlen(*(liste+i))+1));
+        testMalloc(*(liste_cpy+i));
         strcpy(*(liste_cpy+i),*(liste+i));
     }
     *(liste_cpy+taille)=NULL;
@@ -144,6 +148,7 @@ int isPathValidPhy(char * path){
     }
     else{
         char *newPathTmp = malloc(sizeof(char) * (strlen(pwdPhy) + strlen(path) + 2)); // on crée un chemin contenant pwd et path = newPathTmp
+        testMalloc(newPathTmp);
         sprintf(newPathTmp,"%s/%s",pwdPhy,path);
         struct stat st;
         stat(newPathTmp,&st);
@@ -180,6 +185,7 @@ char** combine_char_array(char** arr1, char** arr2) {
 
     // Allocate a new char** array with the combined length of the two input arrays
     char** combined = malloc(sizeof(char*) * (len1 + len2 + 1));
+    testMalloc(combined);
     if(len1 + len2 == 0){
         *combined = NULL;
         return combined;
@@ -190,11 +196,13 @@ char** combine_char_array(char** arr1, char** arr2) {
     if(len1 != 0) {
         for (i = 0; i < len1; i++) {
             combined[i] = malloc(sizeof(char) * (strlen(arr1[i]) + 1));
+            testMalloc(combined[i]);
             strcpy(combined[i], arr1[i]);
         }
         if(len2 != 0) {
             for (int j = 0; j < len2; j++) {
                 combined[i] = malloc(sizeof(char) * (strlen(arr2[j]) + 1));
+                testMalloc(combined[i]);
                 strcpy(combined[i], arr2[j]);
                 i++;
             }
@@ -202,6 +210,7 @@ char** combine_char_array(char** arr1, char** arr2) {
     }else if(len2 != 0){
         for (i = 0; i < len2; i++) {
             combined[i] = malloc(sizeof(char) * (strlen(arr2[i]) + 1));
+            testMalloc(combined[i]);
             strcpy(combined[i], arr2[i]);
         }
     }
