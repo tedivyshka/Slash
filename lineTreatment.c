@@ -3,7 +3,7 @@
 #include "redirection.h"
 
 /**
- * returns a string representing the prefix of a word.
+ * Returns a string representing the prefix of a word.
  * The boundary between the prefix and the radical is the position pos, not included.
  * @param pos position
  * @param asteriskString word
@@ -20,7 +20,7 @@ char * getPrefixe(unsigned long pos, char * asteriskString){
 }
 
 /**
- * returns a string representing the suffix of a word.
+ * Returns a string representing the suffix of a word.
  * The boundary between the suffix and the radical is the position pos, included.
  * @param pos position
  * @param asteriskString word
@@ -37,7 +37,7 @@ char * getSuffixe(unsigned long pos, char * asteriskString){
 }
 
 /**
- * returns the sub-string from the start position to the next "/" (or the end of the word).
+ * Returns the sub-string from the start position to the next "/" (or the end of the word).
  * @param start position
  * @param asteriskString
  * @return
@@ -54,7 +54,7 @@ char * getAstefixe(int start, const char * asteriskString){
 
 
 /**
- * checks that asterisk_string is a suffix of entry_name.
+ * Checks that asterisk_string is a suffix of entry_name.
  * A character by character comparison from the end to the beginning.
  * @param entry_name
  * @param asterisk_string
@@ -71,7 +71,7 @@ int strstrSuffixe(char * entry_name, char * asterisk_string){
 }
 
 /**
- * the position of the first ' * ' that is not a valid path
+ * The position of the first ' * ' that is not a valid path
  * (A directory/file that contains ' * ' in its name).
  * returns -1 if there is none
  * @param asteriskString
@@ -220,8 +220,9 @@ char ** replaceAsterisk(char * asteriskString) {
     return res;
 
 }
+
 /**
- * the purpose of this function is to browse and
+ * The purpose of this function is to browse and
  * return all possible paths to replace ' ** '.
  * This function is recursive and calls replaceAsterisk.
  * It is a recursion that can make a large number of sub-calls.
@@ -363,8 +364,9 @@ char ** doubleAsteriskParcours(char * path, char * suffixe){
 
     return res;
 }
+
 /**
- *  replace ' ** ' in by all possible and valid paths.
+ * Replace ' ** ' in by all possible and valid paths.
  * @param asteriskString char * containing ' ** '
  * @return char ** containing all the possible paths by replacing ' ** '
  */
@@ -394,7 +396,7 @@ char ** replaceDoubleAsterisk(char * asteriskString){
 }
 
 /**
- * removes all double or more occurrences of /
+ * Removes all double or more occurrences of /
  * " //; ///; ////; etc "
  * @param s char *
  * @return char * without double /
@@ -416,8 +418,6 @@ char* supprimer_occurences_slash(const char *s){
             result[j] = s[i];
             j++;
         }
-
-
     }
     result[j] = '\0';
     return result;
@@ -439,6 +439,11 @@ int strcmp_redirections(char* str) {
     return 0;
 }
 
+/**
+ * Returns the number of pipes in a cmd_struct
+ * @param cmd the command line to search from
+ * @return the quantity of pipes
+ */
 size_t pipes_quantity(cmd_struct cmd){
     size_t pipes=0;
     for(int i=0; i<cmd.taille_array; ++i){
@@ -455,9 +460,9 @@ size_t pipes_quantity(cmd_struct cmd){
 }
 
 /**
- * Creates a cmds_struct with the commands separated by the redirection symbols.
- * example : [0] "ls -l | wc -l" -> [0] "ls -l" [0] "|" [0] "wc -l"
- * with each [] a new array
+ * Creates a cmds_struct with the commands separated by the pipe symbol.\n
+ * For example : [0] "ls -l | wc -l" -> [0] "ls -l" [0] "|" [0] "wc -l"
+ * with each [] as a new array
  * @param cmd the struct with an array of strings of the command line
  * @return cmds_struct with the commands separated
  */
@@ -514,14 +519,17 @@ cmds_struct separate_pipes(cmd_struct cmd){
 }
 
 /**
- * Interprets the commands to call the corresponding functions.
- * @param liste struct for the command
+ * Inteprets a list of commands
+ * @param first_command the first command of the parsed line
+ * @param separated_list the list of commands without pipes.\n
+ * Each element is a command and theirs arguments, redirections are still on the list
  */
 void interpreter(char* first_command,cmds_struct separated_list) {
     if(syntax_error==1){
         dprintf(STDERR_FILENO,"slash: syntax error\n");
     }
     else{
+        // command line with more than 1 argument should use pipes
         if(separated_list.taille_array>1){
             handle_pipe(separated_list);
         }
@@ -541,6 +549,7 @@ void interpreter(char* first_command,cmds_struct separated_list) {
 void verify_syntax(cmds_struct cmds){
     for(int i=0; i<cmds.taille_array; ++i){
         for(int j=0; j<cmds.cmds_array[i].taille_array; ++j){
+            // check if the output redirection is not on the first command
             if((strcmp(cmds.cmds_array[i].cmd_array[j],">")==0
             || strcmp(cmds.cmds_array[i].cmd_array[j],">>")==0
             || strcmp(cmds.cmds_array[i].cmd_array[j],">|")==0)
@@ -549,6 +558,7 @@ void verify_syntax(cmds_struct cmds){
                 errorCode=2;
                 return;
             }
+            // check if the redirection is the last elements of the list
             if((strcmp(cmds.cmds_array[i].cmd_array[j],">")==0
                 || strcmp(cmds.cmds_array[i].cmd_array[j],">>")==0
                 || strcmp(cmds.cmds_array[i].cmd_array[j],">|")==0)
@@ -557,6 +567,7 @@ void verify_syntax(cmds_struct cmds){
                 errorCode=2;
                 return;
             }
+            // check if the input redirection is not the first element of the list
             if(strcmp(cmds.cmds_array[i].cmd_array[j],"<")==0 && i!=0){
                 syntax_error=1;
                 errorCode=2;
@@ -567,7 +578,7 @@ void verify_syntax(cmds_struct cmds){
 }
 
 /**
- * this function is a transition between the lexer and the interpreter.
+ * This function is a transition between the lexer and the interpreter.
  * It checks for each argument of the command if it contains **
  * and calls the corresponding function. If not it calls replaceAsterisk
  * which will return a char ** with all possible paths replacing *,
@@ -628,6 +639,7 @@ void joker_expansion(cmd_struct liste){
     // we check that the length of the result is less than 4096
     test_Arg_Len(new_liste.cmd_array);
 
+    // remove pipes from the command line and turns it into multiple arrays, one for each command and their arguments
     cmds_struct separated_list=separate_pipes(new_liste);
 
     verify_syntax(separated_list);
@@ -641,7 +653,7 @@ void joker_expansion(cmd_struct liste){
 }
 
 
-/***
+/**
  * Turns a line into a command structure.
  * @param ligne line from the prompt
  * @return struct cmd_struct

@@ -21,14 +21,17 @@ extern char * oldpwd;
 extern char * pwdPhy;
 extern char * home;
 
-/***
- * A structure of commands with a list of String and the size of this list.
+/**
+ * A structure of command with a list of string and the size of this list.
  */
 typedef struct cmd_struct{
     char** cmd_array;
     size_t taille_array;
 }cmd_struct;
 
+/**
+ * A structure of commands with a list cmd_struct and the size of this list.
+ */
 typedef struct cmds_struct{
     cmd_struct* cmds_array;
     size_t taille_array;
@@ -41,7 +44,7 @@ typedef struct cmds_struct{
  */
 void perror_exit(char* msg);
 
-/***
+/**
  * Checks if a malloc has failed.
  * @param ptr pointer to check
  */
@@ -59,15 +62,28 @@ void freeCmdArray(cmd_struct array);
  */
 void freeCmdsArray(cmds_struct array);
 
-cmd_struct copyCmdsStruct(cmd_struct liste);
-
+/**
+ * Copy an array of string and NULL terminate it
+ * @param liste the array to copy
+ * @return the new array of strings
+ */
 char** copyStringArray(char** liste);
 
+/**
+ * Same as copyStringArray() but with n string copied
+ * @param liste array
+ * @param n the amount of string to copy
+ * @return the new array of strings
+ */
 char** copyNStringArray(char** liste,size_t n);
 
+/**
+ * Free an array of string
+ * @param array double pointer of char
+ */
 void freeArray(char** array);
 
-/***
+/**
  * Double the size allocated to the variable if necessary.
  * @param array string array
  * @param taille_array array size
@@ -76,26 +92,40 @@ void freeArray(char** array);
  */
 char** checkArraySize(char** array,size_t taille_array,size_t* taille_array_initiale);
 
-/***
+/**
  * Checks that a path is valid physically.
  * @param path relative or absolute path
  * @return int val to represent boolean value. 0 = True, 1 = False
  */
 int isPathValidPhy(char * path);
 
-/***
+/**
  * Checks that a path is valid logically.
  * @param path absolute path for a directory
  * @return int val to represent boolean value. 0 = True, 1 = False
  */
 int isPathValidLo(char* path);
 
+/**
+ * Function to combine two char** variables into a single char**
+ * @param arr1 char ** null terminated
+ * @param arr2 char ** null terminated
+ * @return char ** null terminated
+ */
 char** combine_char_array(char** arr1, char** arr2);
 
-void print_char_double_ptr(char **str);
-
+/**
+ * A function that return the number of char
+ * inside a char ** null terminated.
+ * @param strings
+ * @return count of char in strings
+ */
 int count_chars(char **strings);
 
+/**
+* If the line contains more than MAX_ARGS_STRLEN, the program is exited.
+ * @param strings arguments of command line
+ */
 void test_Arg_Len(char ** strings);
 
 

@@ -6,6 +6,11 @@ static char** error_redir;
 
 int syntax_error=0;
 
+/**
+ * Execute a command in a pipeline (already in a fork)
+ * @param list the list of commands
+ * @param pid execute only commands from child
+ */
 void exec_command_pipeline(cmd_struct list,pid_t pid){
     if(pid==0){
         defaultSignals();
@@ -19,15 +24,21 @@ void exec_command_pipeline(cmd_struct list,pid_t pid){
             process_exit_call(list);
         }
         else{
-            process_external_command_pipeline(list,pid);
+            process_external_command(list);
         }
         exit(errorCode);
     }
 }
 
+/**
+ * Returns the input redirection filename or an empty string if there's none
+ * @param cmd the command to check input redirection from
+ * @return the redirection filename or an empty string
+ */
 char* in_redir(cmd_struct cmd){
     for(int i=0;i<cmd.taille_array;i++){
         if(strcmp(*(cmd.cmd_array+i),"<")==0){
+            // check for syntax error
             if(i+1==cmd.taille_array || strcmp_redirections(*(cmd.cmd_array+i+1))==1 || strcmp(*(cmd.cmd_array+i+1),"|")==0){
                 syntax_error=1;
                 errorCode=2;
@@ -38,10 +49,16 @@ char* in_redir(cmd_struct cmd){
     return "";
 }
 
+/**
+ * Returns the output redirection symbol and the filename or an empty string if there's none
+ * @param cmd the command to check output redirection from
+ * @return the redirection symbol and the filename or an empty string
+ */
 char** out_redir(cmd_struct cmd){
     char** res= malloc(sizeof(char*)*2);
     for(int i=0;i<cmd.taille_array;i++){
         if((strcmp(*(cmd.cmd_array+i),">")==0 || strcmp(*(cmd.cmd_array+i),">|")==0 || strcmp(*(cmd.cmd_array+i),">>")==0)){
+            // check for syntax error
             if(i+1==cmd.taille_array || strcmp_redirections(*(cmd.cmd_array+i+1))==1 || strcmp(*(cmd.cmd_array+i+1),"|")==0){
                 syntax_error=1;
                 errorCode=2;
@@ -57,10 +74,16 @@ char** out_redir(cmd_struct cmd){
     return res;
 }
 
+/**
+ * Returns the error redirection symbol and the filename or an empty string if there's none
+ * @param cmd the command to check error redirection from
+ * @return the redirection symbol and the filename or an empty string
+ */
 char** err_redir(cmd_struct cmd){
     char** res=malloc(sizeof(char*)*2);
     for(int i=0;i<cmd.taille_array;i++){
         if((strcmp(*(cmd.cmd_array+i),"2>")==0 || strcmp(*(cmd.cmd_array+i),"2>|")==0 || strcmp(*(cmd.cmd_array+i),"2>>")==0)){
+            // check for syntax error
             if(i+1==cmd.taille_array || strcmp_redirections(*(cmd.cmd_array+i))==1 || strcmp(*(cmd.cmd_array+i),"|")==0){
                 syntax_error=1;
                 errorCode=2;
@@ -76,6 +99,16 @@ char** err_redir(cmd_struct cmd){
     return res;
 }
 
+/**
+ * Handle the pipes in a command line iteratively.\n
+ * We first get the input and output redirections informations.
+ * We create an array of pipes and initialize them.
+ * We create an array to store the childs pids.
+ * Then for each command we dup the file descriptors for each redirection and each pipe, and then execute the command.
+ * The parent wait for each child, check for the signal in the child process status and exit slash if 'exit' was called in the line.
+ *
+ * @param cmds the line to handle pipe from
+ */
 void handle_pipe(cmds_struct cmds){
     size_t num_commands=cmds.taille_array;
     input_redir=in_redir(*cmds.cmds_array);
@@ -105,6 +138,7 @@ void handle_pipe(cmds_struct cmds){
         if (child_pids[i]<0) {
             perror_exit("fork");
         }
+        // we exit the 'for' loop for the childs
         if(child_pids[i]==0) break;
     }
 
@@ -201,6 +235,7 @@ void handle_pipe(cmds_struct cmds){
         int status;
         waitpid(child_pids[i], &status, 0);
         errorCode = WEXITSTATUS(status);
+        // exit 'slash' if an exit call was in the line
         if(strcmp(*((cmds.cmds_array+i)->cmd_array),"exit")==0){
             exit(errorCode);
         }

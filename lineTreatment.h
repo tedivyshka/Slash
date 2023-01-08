@@ -8,7 +8,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-/***
+/**
  * Turns a line into a command structure.
  * @param ligne line from the prompt
  * @return struct cmds_struct

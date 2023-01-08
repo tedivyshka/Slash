@@ -36,8 +36,7 @@ void testMalloc(void * ptr){
  */
 void freeCmdArray(cmd_struct array) {
     for (int i = 0; i < array.taille_array; i++) {
-        // don't free
-            free(*(array.cmd_array + i));
+        free(*(array.cmd_array + i));
     }
     free(array.cmd_array);
 }
@@ -154,7 +153,7 @@ int isPathValidPhy(char * path){
 }
 
 
-/***
+/**
  * Checks that a path is valid logically
  * @param path absolute path for a directory
  * @return int val to represent boolean value. 0 = True, 1 = False
@@ -212,17 +211,7 @@ char** combine_char_array(char** arr1, char** arr2) {
     return combined;
 }
 
-void print_char_double_ptr(char **str) {
-    printf("print_char_double_ptr\n");
-    int i = 0;
-    while (str[i] != NULL) {
-        printf("i = %d\n", i);
-        printf("%s\n", str[i]);
-        i++;
-    }
-}
-
-/***
+/**
  * A function that return the number of char
  * inside a char ** null terminated.
  * @param strings
@@ -238,8 +227,8 @@ int count_chars(char ** strings) {
     return count;
 }
 
-/***
-* if the line contains more than MAX_ARGS_STRLEN, the program is exited.
+/**
+* If the line contains more than MAX_ARGS_STRLEN, the program is exited.
  * @param strings arguments of command line
  */
 void test_Arg_Len(char ** strings){

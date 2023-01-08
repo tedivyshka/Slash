@@ -1,14 +1,15 @@
 #include "commands.h"
 
-/***
- * Runs external command for the pipeline (already in fork)
+/**
+ * Runs external command for the pipelines and redirections (already in a child's fork)
  * @param liste struct for the command
  */
-void process_external_command_pipeline(cmd_struct liste,int r){
+void process_external_command(cmd_struct liste){
     char** args = malloc(sizeof(char*) * (liste.taille_array + 1));
-    //Fill args array
+    // fill args array
     for(int i = 0; i < liste.taille_array; i++){
         args[i] = malloc(sizeof(char) * strlen(*(liste.cmd_array + i)) + 1);
+        testMalloc(args[i]);
         strcpy(args[i], *(liste.cmd_array + i));
     }
     args[liste.taille_array] = NULL;
@@ -17,8 +18,14 @@ void process_external_command_pipeline(cmd_struct liste,int r){
     exit(127);
 }
 
+/**
+ * Remove every redirections signs in the cdm_struct
+ * @param liste the list to remove redirections from
+ * @return the new cmd_struct
+ */
 cmd_struct remove_redirections(cmd_struct liste){
     char** args=malloc(sizeof(char*)*(liste.taille_array+1));
+    testMalloc(args);
     // fill args array until a redirection sign is met to keep only the command
     int i;
     for(i=0; i<liste.taille_array; i++){
@@ -33,36 +40,7 @@ cmd_struct remove_redirections(cmd_struct liste){
     return res;
 }
 
-/***
- * Runs external command for the redirection
- * @param liste struct for the command
- */
-void process_external_command_redirection(cmd_struct liste){
-    cmd_struct removed=remove_redirections(liste);
-    char** args=removed.cmd_array;
-
-    int status, r=fork();
-    if(r == 0){
-        defaultSignals();
-        execvp(args[0],args);
-        exit(127);
-    }
-    else{
-        wait(&status);
-        errorCode = WEXITSTATUS(status);
-        if(WIFSIGNALED(status)) errorCode = -1;
-
-        /*
-        for(int i=0; i<liste.taille_array; i++){
-            free(*(args+i));
-        }
-        free(args);
-         */
-    }
-}
-
-
-/***
+/**
  * An implementation of the intern command cd.
  * Change the working directory.
  * This function is commented throughout to explain how it works locally.
@@ -234,7 +212,7 @@ int process_cd(char * option, char * path){
     return 0;
 }
 
-/***
+/**
  * Interprets the cd arguments to call process_cd with good parameters.
  * @param liste struct for the command
  */
@@ -261,7 +239,7 @@ void process_cd_call(cmd_struct liste){
     }
 }
 
-/***
+/**
  * Interprets the pwd arguments to call get_cwd with good parameters or print global variable pwd.
  * @param liste struct for the command
  */
@@ -279,7 +257,7 @@ void process_pwd_call(cmd_struct liste){
     errorCode = 0;
 }
 
-/***
+/**
  * Interprets the exit arguments to call exit() with good value
  * @param liste struct for the command
  */

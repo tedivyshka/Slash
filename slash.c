@@ -1,6 +1,6 @@
 #include "slash.h"
 
-/***
+/**
  * Generate the prompt for the readline call.
  * @return the prompt
  */
@@ -41,11 +41,10 @@ char* promptGeneration(){
 }
 
 
-/***
+/**
  * Variables initialization
  */
 void initVar(){
-    // todo malloc a la bonne taille
     home = malloc(MAX_ARGS_STRLEN * sizeof(char));
     strcpy(home,getenv("HOME"));
     pwd = malloc(MAX_ARGS_STRLEN * sizeof(char));
@@ -61,7 +60,7 @@ void initVar(){
 }
 
 
-/***
+/**
  * Main loop of the program
  */
 void run(){
@@ -70,7 +69,6 @@ void run(){
     char* ligne;
     cmd_struct liste;
     while(1){
-        //dprintf(STDERR_FILENO,"dans boucle : %d\n",getpid());
         char* tmp=promptGeneration();
         ligne=readline(tmp);
         // checks if ligne is empty after readline return
@@ -91,8 +89,7 @@ void run(){
     }
 }
 
-
-/***
+/**
  * Call run() function
  * @return exit value
  */

@@ -7,7 +7,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
-/***
+/**
  * Main loop of the program
  */
 void run();

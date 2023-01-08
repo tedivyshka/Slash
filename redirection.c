@@ -1,8 +1,13 @@
 #include "redirection.h"
 
+// saved file descriptors before each dup
 static int saved[3]={-1,-1,-1};
+// default values of stdin,stdout,stderr
 static int duped[3]={0,1,2};
 
+/**
+ * Reset the saved file descriptors to the default values of stdin,stdout and stderr
+ */
 void reset_redi(){
     for(int i=0; i<3; i++){
         if(saved[i]!=-1)
@@ -12,6 +17,10 @@ void reset_redi(){
     }
 }
 
+/**
+ * Execute internal command containing redirections
+ * @param list the line to execute the command from
+ */
 void exec_command_redirection(cmd_struct list){
     if(strcmp(*list.cmd_array,"cd")==0){
         process_cd_call(list);
@@ -23,15 +32,23 @@ void exec_command_redirection(cmd_struct list){
         process_exit_call(list);
     }
     fflush(stdout);
+    // we reset the saved redirections after each executed command
     reset_redi();
 }
 
-void exec_command_extern(cmd_struct list,pid_t pid){
+/**
+ * Execute external command containing redirections
+ * @param list the line to execute the command from
+ */
+void exec_command_extern(cmd_struct list){
     defaultSignals();
-    process_external_command_pipeline(list,pid);
-    exit(errorCode);
+    process_external_command(list);
 }
 
+/**
+ * Handle a line with redirections (or not) with an internal command
+ * @param list the line to execute the command from
+ */
 void handle_redirection_intern(cmd_struct cmd){
     char** line=cmd.cmd_array;
     int in_flags=O_RDONLY;
@@ -99,6 +116,10 @@ void handle_redirection_intern(cmd_struct cmd){
     exec_command_redirection(cmd);
 }
 
+/**
+ * Handle a line with redirections (or not) with an external command
+ * @param list the line to execute the command from
+ */
 void handle_redirection_extern(cmd_struct cmd){
     char** line=cmd.cmd_array;
     int in_flags=O_RDONLY;
@@ -170,12 +191,12 @@ void handle_redirection_extern(cmd_struct cmd){
                 if(close(err_fd)<0) perror_exit("close");
             }
         }
+        // get only the command and the arguments from the line
         cmd_struct removed_cmd=remove_redirections(cmd);
-        exec_command_extern(removed_cmd,pid);
+        exec_command_extern(removed_cmd);
         perror_exit("execvp");
     }
     else{
-        reset_redi();
         int status;
         waitpid(pid,&status,0);
         errorCode = WEXITSTATUS(status);
