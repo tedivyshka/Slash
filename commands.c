@@ -43,178 +43,184 @@ cmd_struct remove_redirections(cmd_struct liste){
 }
 
 /**
- * An implementation of the intern command cd.
+ * An implementation of the intern command cd -P
  * Change the working directory.
  * This function is commented throughout to explain how it works locally.
- * @param option for cd call. "-P", "-L" or ""
  * @param path relative or absolute path
  * @return 0. return 1 if error encountered
  */
-int process_cd(char * option, char * path){
-    if(strcmp(option,"-P") == 0){ // option "-P"
-        if(path[0] == '-'){ // case of "-", we return to the last directory where we were.
-            if(strlen(oldpwd) == 0){
-                errno = ECANCELED;
-                perror("bash: cd: « OLDPWD » undefined");
-                return 1;
-            }
-            char * temp = malloc(sizeof(char) * MAX_ARGS_STRLEN);
-            testMalloc(temp);
-            strcpy(temp,oldpwd);
-            strcpy(oldpwd,pwd);
-
-            chdir(temp); // chdir() and getcwd() function are used to get the physical path of the parameter path.
-            getcwd(pwd, MAX_ARGS_STRLEN);
-            getcwd(pwdPhy,MAX_ARGS_STRLEN);
-            free(temp);
+int process_cd_opt_P(char * path){
+    if(path[0] == '-'){ // case of "-", we return to the last directory where we were.
+        if(strlen(oldpwd) == 0){
+            errno = ECANCELED;
+            perror("bash: cd: « OLDPWD » undefined");
+            return 1;
         }
-        else{
-            if(isPathValidPhy(path) != 0) { // if path isn't valid, an error message is displayed and the return value is 1.
-                char* er = malloc(sizeof(char) * (strlen(path) + 48));
-                testMalloc(er);
-                sprintf(er,"bash: cd: %s",path);
-                errno = ENOENT;
-                perror(er);
-                free(er);
-                return 1;
-            }
-            strcpy(oldpwd, pwd); // oldpwd takes the old value of pwd
+        char * temp = malloc(sizeof(char) * MAX_ARGS_STRLEN);
+        testMalloc(temp);
+        strcpy(temp,oldpwd);
+        strcpy(oldpwd,pwd);
 
-            if (path[0] == '/') { // Absolute path : pwdPhy and pwd take the value of the path, transformed in physical path
-                chdir(path);
-                getcwd(pwdPhy, BUFSIZE);
-                getcwd(pwd,BUFSIZE);
-            }
-            else{ // Relative path : pwdPhy and pwd take the value of pwdPhy + "/" + path, transformed into physical path.
-                char *newPath = malloc(sizeof(char) * ((strlen(pwdPhy) + 2 + strlen(path))));
-                testMalloc(newPath);
-                sprintf(newPath,"%s/%s",pwdPhy,path);
-                chdir(newPath);
-                getcwd(pwdPhy, BUFSIZE);
-                getcwd(pwd,BUFSIZE);
-                free(newPath);
-            }
+        chdir(temp); // chdir() and getcwd() function are used to get the physical path of the parameter path.
+        getcwd(pwd, MAX_ARGS_STRLEN);
+        getcwd(pwdPhy,MAX_ARGS_STRLEN);
+        free(temp);
+    }
+    else{
+        if(isPathValidPhy(path) != 0) { // if path isn't valid, an error message is displayed and the return value is 1.
+            char* er = malloc(sizeof(char) * (strlen(path) + 48));
+            testMalloc(er);
+            sprintf(er,"bash: cd: %s",path);
+            errno = ENOENT;
+            perror(er);
+            free(er);
+            return 1;
+        }
+        strcpy(oldpwd, pwd); // oldpwd takes the old value of pwd
+
+        if (path[0] == '/') { // Absolute path : pwdPhy and pwd take the value of the path, transformed in physical path
+            chdir(path);
+            getcwd(pwdPhy, BUFSIZE);
+            getcwd(pwd,BUFSIZE);
+        }
+        else{ // Relative path : pwdPhy and pwd take the value of pwdPhy + "/" + path, transformed into physical path.
+            char *newPath = malloc(sizeof(char) * ((strlen(pwdPhy) + 2 + strlen(path))));
+            testMalloc(newPath);
+            sprintf(newPath,"%s/%s",pwdPhy,path);
+            chdir(newPath);
+            getcwd(pwdPhy, BUFSIZE);
+            getcwd(pwd,BUFSIZE);
+            free(newPath);
         }
     }
-    else{ // option -L or no option
-        if(path[0] == '-'){ // case of "-", we return to the last directory where we were.
-            if(strlen(oldpwd) == 0){
-                errno = ECANCELED;
-                perror("slash: cd: « OLDPWD » undefined");
-                return 1;
-            }
-            char * tmp = malloc(sizeof(char) * MAX_ARGS_STRLEN);
-            testMalloc(tmp);
-            strcpy(tmp,oldpwd);
-            strcpy(oldpwd,pwd);
-            strcpy(pwd,tmp);
+    return 0;
+}
 
-
-            chdir(tmp); // pwdPhy takes the old value of oldpwd
-            getcwd(pwdPhy,BUFSIZE); // which we transform into a physical value with chdir + getcwd
-            free(tmp);
+/**
+ * An implementation of the intern command cd -L
+ * Change the working directory.
+ * This function is commented throughout to explain how it works locally.
+ * @param path relative or absolute path
+ * @return 0. return 1 if error encountered
+ */
+int process_cd_opt_L(char * path){
+    if(path[0] == '-'){ // case of "-", we return to the last directory where we were.
+        if(strlen(oldpwd) == 0){
+            errno = ECANCELED;
+            perror("slash: cd: « OLDPWD » undefined");
+            return 1;
         }
-        else { // case of relative and absolute logical path
-            char * pathCopy = malloc(sizeof(char) * (strlen(path) + 1));
+        char * tmp = malloc(sizeof(char) * MAX_ARGS_STRLEN);
+        testMalloc(tmp);
+        strcpy(tmp,oldpwd);
+        strcpy(oldpwd,pwd);
+        strcpy(pwd,tmp);
+
+
+        chdir(tmp); // pwdPhy takes the old value of oldpwd
+        getcwd(pwdPhy,BUFSIZE); // which we transform into a physical value with chdir + getcwd
+        free(tmp);
+    }
+    else { // case of relative and absolute logical path
+        char * pathCopy = malloc(sizeof(char) * (strlen(path) + 1));
+        testMalloc(pathCopy);
+        strcpy(pathCopy,path); // We create a copy of path to work with
+        if (pathCopy[0] != '/') { // if the path is relative
+            // we create a path containing pwd and path
+            char *newPathTmp = malloc(sizeof(char) * (strlen(pwd) + strlen(pathCopy) + 2));
+            testMalloc(newPathTmp);
+            sprintf(newPathTmp,"%s/%s",pwd,pathCopy);
+            pathCopy = realloc(pathCopy, sizeof(char) * (strlen(newPathTmp) + 1));
             testMalloc(pathCopy);
-            strcpy(pathCopy,path); // We create a copy of path to work with
-            if (pathCopy[0] != '/') { // if the path is relative
-                // we create a path containing pwd and path
-                char *newPathTmp = malloc(sizeof(char) * (strlen(pwd) + strlen(pathCopy) + 2));
-                testMalloc(newPathTmp);
-                sprintf(newPathTmp,"%s/%s",pwd,pathCopy);
-                pathCopy = realloc(pathCopy, sizeof(char) * (strlen(newPathTmp) + 1));
-                testMalloc(pathCopy);
-                strcpy(pathCopy, newPathTmp);
-                free(newPathTmp);
-            }
-            // We create a char** to keep the information of the path.
-            // More precisely, each char* will correspond to a subpart of path, delimited by "/".
-
-            char** partByPartNewPath=malloc(sizeof(char*)*MAX_ARGS_STRLEN);
-            testMalloc(partByPartNewPath);
-            char* token;
-            size_t* taille_array_init= malloc(sizeof(size_t));
-            testMalloc(taille_array_init);
-            size_t taille_token;
-            size_t taille_array=0;
-            *taille_array_init=1;
-
-            // each sub part is obtained with strtok.
-            // this is also the reason why we needed a copy of the path. strtok damage his parameter.
-            token=strtok(pathCopy,"/");
-            do{
-                if(token!=NULL){
-                    taille_token=strlen(token);
-                    if(taille_array==MAX_ARGS_STRLEN){
-                        perror("slash: cd: MAX ARGS LEN REACHED");
-                        exit(EXIT_FAILURE);
-                    }
-
-                    *(partByPartNewPath+taille_array)=malloc(sizeof(char)*(taille_token+1));
-                    testMalloc(*(partByPartNewPath+taille_array));
-                    *(partByPartNewPath+taille_array)=memcpy(*(partByPartNewPath+taille_array),token,taille_token+1);
-                    taille_array++;
-                }
-            }
-            while((token = strtok(NULL, "/")));
-
-            free(token);
-            free(taille_array_init);
-            free(pathCopy);
-
-            int counter = 0;
-            while (taille_array > counter) { // We go through the whole array.
-                if (strcmp(partByPartNewPath[counter], "..") == 0) { // Each time we encounter "..".
-                    strcpy(partByPartNewPath[counter], "-"); // We replace the content of the case with "-".
-                    int reverseCounter = 1;
-                    while (counter - reverseCounter >= 0 && strcmp(partByPartNewPath[counter - reverseCounter], "-") == 0) {
-                        reverseCounter += 1;
-                    }
-                    if (counter - reverseCounter > 0) {
-                        strcpy(partByPartNewPath[counter - reverseCounter], "-"); //As well as the previous case not containing already "-".
-                    } else { // If there is none -> logical interpretation that makes little or no sense -> physical interpretation.
-                        return process_cd("-P", path);
-                    }
-                }
-                else if (strcmp(partByPartNewPath[counter], ".") == 0) {// Each time we encounter "."
-                    strcpy(partByPartNewPath[counter], "-"); // We replace the content of the case with "-".
-                }
-                counter += 1;
-            }
-
-            char *newPath = malloc(sizeof(char) * (MAX_ARGS_STRLEN)); // Creation of the new path, without ".." and "." subpart.
-            testMalloc(newPath);
-
-            strcpy(newPath,"");
-            counter = 0;
-            while (taille_array > counter) {
-                if (strcmp(partByPartNewPath[counter], "-") != 0) { // it will contain all the sub-parts of the initial path that have not been replaced by "-".
-                    strcat(newPath, "/"); // by placing a "/" between each part.
-                    strcat(newPath, partByPartNewPath[counter]);
-                }
-                free(partByPartNewPath[counter]);
-                counter += 1;
-            }
-
-            if(isPathValidLo(newPath) != 0) { // if the path is not valid, we call process_cd with the physical option.
-                free(newPath);
-                free(partByPartNewPath);
-                return process_cd("-P", path);
-            }
-            else{
-                // We modify the global variables.
-                strcpy(oldpwd, pwd);
-                strcpy(pwd, newPath);
-
-                // We also save the physical version of the path, for the next cd.
-                chdir(newPath);
-                getcwd(pwdPhy, BUFSIZE);
-                free(newPath);
-            }
-
-            free(partByPartNewPath);
+            strcpy(pathCopy, newPathTmp);
+            free(newPathTmp);
         }
+        // We create a char** to keep the information of the path.
+        // More precisely, each char* will correspond to a subpart of path, delimited by "/".
+
+        char** partByPartNewPath=malloc(sizeof(char*)*MAX_ARGS_STRLEN);
+        testMalloc(partByPartNewPath);
+        char* token;
+        size_t* taille_array_init= malloc(sizeof(size_t));
+        testMalloc(taille_array_init);
+        size_t taille_token;
+        size_t taille_array=0;
+        *taille_array_init=1;
+
+        // each sub part is obtained with strtok.
+        // this is also the reason why we needed a copy of the path. strtok damage his parameter.
+        token=strtok(pathCopy,"/");
+        do{
+            if(token!=NULL){
+                taille_token=strlen(token);
+                if(taille_array==MAX_ARGS_STRLEN){
+                    perror("slash: cd: MAX ARGS LEN REACHED");
+                    exit(EXIT_FAILURE);
+                }
+
+                *(partByPartNewPath+taille_array)=malloc(sizeof(char)*(taille_token+1));
+                testMalloc(*(partByPartNewPath+taille_array));
+                *(partByPartNewPath+taille_array)=memcpy(*(partByPartNewPath+taille_array),token,taille_token+1);
+                taille_array++;
+            }
+        }
+        while((token = strtok(NULL, "/")));
+
+        free(token);
+        free(taille_array_init);
+        free(pathCopy);
+
+        int counter = 0;
+        while (taille_array > counter) { // We go through the whole array.
+            if (strcmp(partByPartNewPath[counter], "..") == 0) { // Each time we encounter "..".
+                strcpy(partByPartNewPath[counter], "-"); // We replace the content of the case with "-".
+                int reverseCounter = 1;
+                while (counter - reverseCounter >= 0 && strcmp(partByPartNewPath[counter - reverseCounter], "-") == 0) {
+                    reverseCounter += 1;
+                }
+                if (counter - reverseCounter > 0) {
+                    strcpy(partByPartNewPath[counter - reverseCounter], "-"); //As well as the previous case not containing already "-".
+                } else { // If there is none -> logical interpretation that makes little or no sense -> physical interpretation.
+                    return process_cd_opt_P(path);
+                }
+            }
+            else if (strcmp(partByPartNewPath[counter], ".") == 0) {// Each time we encounter "."
+                strcpy(partByPartNewPath[counter], "-"); // We replace the content of the case with "-".
+            }
+            counter += 1;
+        }
+
+        char *newPath = malloc(sizeof(char) * (MAX_ARGS_STRLEN)); // Creation of the new path, without ".." and "." subpart.
+        testMalloc(newPath);
+
+        strcpy(newPath,"");
+        counter = 0;
+        while (taille_array > counter) {
+            if (strcmp(partByPartNewPath[counter], "-") != 0) { // it will contain all the sub-parts of the initial path that have not been replaced by "-".
+                strcat(newPath, "/"); // by placing a "/" between each part.
+                strcat(newPath, partByPartNewPath[counter]);
+            }
+            free(partByPartNewPath[counter]);
+            counter += 1;
+        }
+
+        if(isPathValidLo(newPath) != 0) { // if the path is not valid, we call process_cd with the physical option.
+            free(newPath);
+            free(partByPartNewPath);
+            return process_cd_opt_P( path);
+        }
+        else{
+            // We modify the global variables.
+            strcpy(oldpwd, pwd);
+            strcpy(pwd, newPath);
+
+            // We also save the physical version of the path, for the next cd.
+            chdir(newPath);
+            getcwd(pwdPhy, BUFSIZE);
+            free(newPath);
+        }
+
+        free(partByPartNewPath);
     }
     return 0;
 }
@@ -224,25 +230,52 @@ int process_cd(char * option, char * path){
  * @param liste struct for the command
  */
 void process_cd_call(cmd_struct liste){
-    if(liste.taille_array>3){ // too many arguments
-        errno = EINVAL;
-        perror("slash: cd");
-        errorCode=1;
-    }
-    else if(liste.taille_array == 1){ // no option and no path
-        errorCode = process_cd("-L", home);
-    }
-    else if(liste.taille_array == 3) { // option and path
-        errorCode = process_cd(*(liste.cmd_array + 1), *(liste.cmd_array + 2));
-    }
-    else{ // no option or no path
-        // no path
-        if(strcmp(*(liste.cmd_array + 1),"-L") == 0 || strcmp(*(liste.cmd_array + 1),"-P") == 0){
-            errorCode = process_cd(*(liste.cmd_array + 1), home);
-        }
-        else {// no option
-            errorCode = process_cd("-L", *(liste.cmd_array + 1));
-        }
+    switch(liste.taille_array) {
+        // no option AND no path
+        case 1:
+            errorCode = process_cd_opt_L(home);
+            break;
+            // no option OR no path
+        case 2:
+            // no path and option -L
+            if (strcmp(*(liste.cmd_array + 1), "-L") == 0) {
+                errorCode = process_cd_opt_L(home);
+            }
+            // no path and option -L
+            else if (strcmp(*(liste.cmd_array + 1), "-P") == 0) {
+                errorCode = process_cd_opt_P(home);
+            }
+            // Invalid option (option but not -P or -L)
+            else if (strlen(liste.cmd_array[1]) >= 2 &&
+                     liste.cmd_array[1][0] == '-' /*&& liste.cmd_array[1][1] != 'P' && liste.cmd_array[1][1] != 'L'*/) {
+                errno = EINVAL;
+                perror("slash: cd");
+                errorCode=1;
+            }
+            // no option
+            else {
+                errorCode = process_cd_opt_L(*(liste.cmd_array + 1));
+            }
+            break;
+
+            // option and path
+        case 3:
+            if (strcmp(*(liste.cmd_array + 1), "-L") == 0) {
+                errorCode = process_cd_opt_L(*(liste.cmd_array + 2));
+            } else if (strcmp(*(liste.cmd_array + 1), "-P") == 0){
+                errorCode = process_cd_opt_P(*(liste.cmd_array + 2));
+            }else{
+                errno = EINVAL;
+                perror("slash: cd");
+                errorCode=1;
+            }
+            break;
+
+        // too many arguments
+        default:
+            errno = EINVAL;
+            perror("slash: cd");
+            errorCode=1;
     }
 }
 

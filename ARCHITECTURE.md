@@ -34,4 +34,9 @@ Chaque fils va alors exécuter sa commande et le père va attendre leur fin pour
 Les redirections de l'entrée, sortie et erreur standard sont traitées puis la commande est executée.  
 Pour les commandes externes, toute la fonction s'effectue dans le processus fils et le père agit comme dans la fonction `handle_pipe()`.
 
+L'algorithme utilisé pour implémenter l'extension du joker '**' peut s'apparenter au parcours en profondeur d'un arbre. Le répertoire courant en serait la racine, les répertoires qu'il contient des sous arbres. Les fichiers ainsi que tous les répertoires sont considérés comme de potentielles feuilles. Attention ! Un répertoire peut-être racine d'un sous arbre ET feuille d'un chemin ! 
+À chaque répertoire parcouru, on essaie le chemin constitué de [chemin vers le répertoire]/[Entrée dans ce répertoire]/[Suffixe] en l'envoyant à la fonction qui gère '*' simple. Si le chemin est correct alors on renvoie ce chemin combiné avec tous les autres chemins possibles.
 
+La gestion de '*' peut s'expliquer de cette manière : 
+avant tout le chemin étudié est de cette forme -> [prefixe]/[mot *]/[suffixe]
+On commence par ouvrir le répertoire correspondant au [prefixe], ensuite on compare les entrées avec [mot *], puis on combine tous les chemins de la forme [prefixe]/[entrée]/[suffixe].
