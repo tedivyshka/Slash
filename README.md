@@ -15,9 +15,9 @@ Le but du projet est de programmer un interpréteur de commandes (aka shell) int
 1. Cloner le dépôt
 
 ```bash
-git clone https://github.com/ryohkhn/Slash.git
+git clone https://github.com/tedivyshka/Slash.git
 # or
-git clone git@github.com:ryohkhn/Slash.git
+git clone git@github.com:tedivyshka/Slash.git
 ```
 
 2. Build
